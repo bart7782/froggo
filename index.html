@@ -26,11 +26,13 @@
     .house .window.left{left:28px}.house .window.right{right:28px}
     .placeholder{position:absolute;bottom:0;left:0;display:grid;place-items:center;width:260px;height:130px;border:3px dashed #18344a66;background:#ffffff22;border-radius:10px;color:#143149;font-weight:700;padding:10px;text-align:center}
     #ufo{position:absolute;top:52px;left:-120px;font-size:28px;opacity:0;transition:opacity .2s;pointer-events:none}
-    #ufo.fly{opacity:1;animation:ufo-fly 2.2s linear}
+    #ufo.fly{opacity:1;animation:ufo-fly 1.05s linear}
     #friend{position:absolute;right:13%;bottom:18%;font-size:44px;opacity:0;transform:translateY(8px);transition:all .3s}
     #friend.show{opacity:1;transform:translateY(0)}
     #partyHat{position:absolute;left:50%;top:-14px;transform:translateX(-50%);display:none}
     #partyHat.show{display:block}
+    #cakeOverlay{position:absolute;left:35%;bottom:29%;font-size:34px;opacity:0;transform:translateY(6px);transition:all .25s;pointer-events:none}
+    #cakeOverlay.show{opacity:1;transform:translateY(0)}
     #character{position:absolute;left:57%;bottom:18%;width:102px;height:100px;animation:bob 3.2s ease-in-out infinite}
     .eye{position:absolute;top:10px;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #2f6d34}.eye::after{content:"";position:absolute;left:8px;top:8px;width:6px;height:6px;border-radius:50%;background:#1a222c}
     .eye.left{left:21px}.eye.right{right:21px}.body{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:86px;height:72px;border-radius:42px 42px 30px 30px;background:var(--frog);box-shadow:0 8px #0003}
@@ -52,6 +54,7 @@
     <div id="locationArt"></div>
     <div id="friend" aria-hidden="true">🦊</div>
     <div id="ufo" aria-hidden="true">🛸</div>
+    <div id="cakeOverlay" aria-hidden="true">🎂</div>
     <div id="character" aria-label="frog">
       <div id="partyHat" aria-hidden="true">🎉</div>
       <div class="eye left"></div><div class="eye right"></div><div class="body"></div><div class="belly"></div><div class="mouth"></div>
@@ -74,7 +77,7 @@
 /* Home Assistant mapping punt:
    updateFromHA({weather:'sunny', timeOfDay:'day'}) aanroepen met echte API data. */
 const context={weather:'sunny',timeOfDay:'day',virtualMinutes:12*60,virtualDayCounter:0};
-const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',lastVirtualDay:null};
+const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',lastVirtualDay:null,easterEggs:{partyCakeEndsAt:0,friendEndsAt:0,ufoEndsAt:0}};
 
 const AMBIENT={
  house:{sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},clear:{night:['Sleeping in bed','Stargazing on the porch']},rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},stormy:{day:['Hiding under the covers'],night:['Hiding under the covers']}},
@@ -89,9 +92,16 @@ const SPECIAL=[
  {name:'Van Gogh Museum',weather:['sunny','rainy','stormy'],activities:["Painting a Sunflowers parody"]}
 ];
 
-const ui={scene:document.getElementById('scene'),loc:document.getElementById('vLoc'),act:document.getElementById('vAct'),type:document.getElementById('vType'),weather:document.getElementById('vWeather'),time:document.getElementById('vTime'),clock:document.getElementById('vClock'),locationArt:document.getElementById('locationArt'),ufo:document.getElementById('ufo'),friend:document.getElementById('friend'),partyHat:document.getElementById('partyHat')};
+const ui={scene:document.getElementById('scene'),loc:document.getElementById('vLoc'),act:document.getElementById('vAct'),type:document.getElementById('vType'),weather:document.getElementById('vWeather'),time:document.getElementById('vTime'),clock:document.getElementById('vClock'),locationArt:document.getElementById('locationArt'),ufo:document.getElementById('ufo'),friend:document.getElementById('friend'),partyHat:document.getElementById('partyHat'),cakeOverlay:document.getElementById('cakeOverlay')};
 const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
 const realToVirtualMinutes = 5; // 1 sec echt = 5 min virtueel
+const EasterEggEngine={
+  roll(type,probability){
+    if(probability<=0||probability>=1) return false;
+    return Math.random()<probability;
+  }
+};
+ui.ufo.addEventListener('animationend',()=>ui.ufo.classList.remove('fly'));
 
 function weatherKey(){return context.timeOfDay==='night'&&context.weather==='sunny'?'clear':context.weather;}
 function setLocationVisual(location){
@@ -109,15 +119,27 @@ function applyEnvironment(){
   if(context.timeOfDay==='night') ui.scene.classList.add('is-night');
 }
 function runEasterEggs(){
-  ui.friend.classList.remove('show');
-  ui.partyHat.classList.remove('show');
-  if(context.timeOfDay==='night' && Math.random()<0.009){
+  const now=Date.now();
+  const partyCakeActive=now<state.easterEggs.partyCakeEndsAt;
+  const friendActive=now<state.easterEggs.friendEndsAt;
+  const ufoActive=now<state.easterEggs.ufoEndsAt;
+
+  if(context.timeOfDay==='night' && !ufoActive && EasterEggEngine.roll('nightUfo',0.009)){
+    state.easterEggs.ufoEndsAt=now+1200;
     ui.ufo.classList.remove('fly');
     void ui.ufo.offsetWidth;
     ui.ufo.classList.add('fly');
   }
-  if(state.currentLocation==='house' && Math.random()<0.009) ui.partyHat.classList.add('show');
-  if(state.currentLocation!=='house' && Math.random()<0.009) ui.friend.classList.add('show');
+  if(state.currentLocation==='house' && !partyCakeActive && EasterEggEngine.roll('housePartyCake',0.009)){
+    state.easterEggs.partyCakeEndsAt=now+3500;
+  }
+  if(state.currentLocation!=='house' && !friendActive && EasterEggEngine.roll('outsideFriend',0.009)){
+    state.easterEggs.friendEndsAt=now+3200;
+  }
+
+  ui.partyHat.classList.toggle('show',now<state.easterEggs.partyCakeEndsAt && state.currentLocation==='house');
+  ui.cakeOverlay.classList.toggle('show',now<state.easterEggs.partyCakeEndsAt && state.currentLocation==='house');
+  ui.friend.classList.toggle('show',now<state.easterEggs.friendEndsAt && state.currentLocation!=='house');
 }
 function pickAmbient(){
   const map=AMBIENT[state.currentLocation]||AMBIENT.house;
@@ -157,7 +179,8 @@ function render(){
   applyEnvironment();
   setLocationVisual(state.currentLocation);
   ui.loc.textContent=state.currentLocation;
-  ui.act.textContent=state.currentActivity;
+  const partyCakeActive=Date.now()<state.easterEggs.partyCakeEndsAt && state.currentLocation==='house';
+  ui.act.textContent=partyCakeActive?'Celebrating with cake at home':state.currentActivity;
   ui.type.textContent=state.eventType;
   ui.weather.textContent=context.weather;
   ui.time.textContent=context.timeOfDay;
