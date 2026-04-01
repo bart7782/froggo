@@ -71,117 +71,261 @@
   </section>
 </main>
 <script>
-/* Home Assistant mapping punt:
-   updateFromHA({weather:'sunny', timeOfDay:'day'}) aanroepen met echte API data. */
-const context={weather:'sunny',timeOfDay:'day',virtualMinutes:12*60,virtualDayCounter:0};
-const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',lastVirtualDay:null};
-
-const AMBIENT={
- house:{sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},clear:{night:['Sleeping in bed','Stargazing on the porch']},rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},stormy:{day:['Hiding under the covers'],night:['Hiding under the covers']}},
- hill:{sunny:{day:['Picnic on a towel','Flying a kite','Painting on an easel']},clear:{night:['Looking through a telescope','Campfire with marshmallows']},cloudy:{day:['Birdwatching with binoculars'],night:['Birdwatching with binoculars']},rainy:{day:['Shelter under a large mushroom'],night:['Shelter under a large mushroom']},stormy:{day:['Clinging to a tree'],night:['Clinging to a tree']}}
+/**
+ * Module: AppState
+ * Input: initiële defaults en externe partial updates.
+ * Output: één centrale stateboom die door alle modules gelezen wordt.
+ * Fase 2 uitbreidingspunten: persistente storage, undo/redo stack, multi-character support.
+ */
+const AppState = {
+  currentLocation: 'house',
+  currentActivity: 'init',
+  eventEndTime: 0,
+  eventType: 'ambient',
+  weather: 'sunny',
+  timeOfDay: 'day',
+  virtualClock: {
+    minutes: 12 * 60,
+    dayCounter: 0,
+    realToVirtualMinutes: 5
+  },
+  lastVirtualDay: null
 };
-const SPECIAL=[
- {name:'Zuiderzeemuseum',weather:['sunny'],activities:['Walking past historic houses','Looking at boats']},
- {name:'Boat Trip',weather:['sunny'],activities:["Steering the boat with a captain's hat",'Looking through a telescope']},
- {name:'Rijksmuseum',weather:['sunny','rainy','stormy'],activities:["Admiring The Night Watch"]},
- {name:'Naturalis',weather:['sunny','rainy','stormy'],activities:['Looking at a T-Rex skeleton']},
- {name:'Spoorwegmuseum',weather:['sunny','rainy','stormy'],activities:['Standing next to a steam engine']},
- {name:'Van Gogh Museum',weather:['sunny','rainy','stormy'],activities:["Painting a Sunflowers parody"]}
-];
 
-const ui={scene:document.getElementById('scene'),loc:document.getElementById('vLoc'),act:document.getElementById('vAct'),type:document.getElementById('vType'),weather:document.getElementById('vWeather'),time:document.getElementById('vTime'),clock:document.getElementById('vClock'),locationArt:document.getElementById('locationArt'),ufo:document.getElementById('ufo'),friend:document.getElementById('friend'),partyHat:document.getElementById('partyHat')};
-const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
-const realToVirtualMinutes = 5; // 1 sec echt = 5 min virtueel
+/**
+ * Module: DomainData
+ * Input: vaste configuratie-data (ambient/special activities).
+ * Output: lookup-tabellen voor businessregels.
+ * Fase 2 uitbreidingspunten: remote content, i18n labels, weighted randomness.
+ */
+const DomainData = {
+  AMBIENT: {
+    house: { sunny: { day: ['Walking in the garden', 'Hanging up laundry', 'Blowing bubbles'], night: ['Relaxing on the porch'] }, clear: { night: ['Sleeping in bed', 'Stargazing on the porch'] }, rainy: { day: ['Looking out the window'], night: ['Reading a book with a lamp'] }, stormy: { day: ['Hiding under the covers'], night: ['Hiding under the covers'] } },
+    hill: { sunny: { day: ['Picnic on a towel', 'Flying a kite', 'Painting on an easel'] }, clear: { night: ['Looking through a telescope', 'Campfire with marshmallows'] }, cloudy: { day: ['Birdwatching with binoculars'], night: ['Birdwatching with binoculars'] }, rainy: { day: ['Shelter under a large mushroom'], night: ['Shelter under a large mushroom'] }, stormy: { day: ['Clinging to a tree'], night: ['Clinging to a tree'] } }
+  },
+  SPECIAL: [
+    { name: 'Zuiderzeemuseum', weather: ['sunny'], activities: ['Walking past historic houses', 'Looking at boats'] },
+    { name: 'Boat Trip', weather: ['sunny'], activities: ["Steering the boat with a captain's hat", 'Looking through a telescope'] },
+    { name: 'Rijksmuseum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Admiring The Night Watch'] },
+    { name: 'Naturalis', weather: ['sunny', 'rainy', 'stormy'], activities: ['Looking at a T-Rex skeleton'] },
+    { name: 'Spoorwegmuseum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Standing next to a steam engine'] },
+    { name: 'Van Gogh Museum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Painting a Sunflowers parody'] }
+  ]
+};
 
-function weatherKey(){return context.timeOfDay==='night'&&context.weather==='sunny'?'clear':context.weather;}
-function setLocationVisual(location){
-  if(location==='house'){
-    ui.locationArt.innerHTML='<div id="locHouse" class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div><div class="window left"></div><div class="window right"></div></div>';
-  }else if(location==='hill'){
-    ui.locationArt.innerHTML='<div class="placeholder">HILL<br/>🌳⛰️</div>';
-  }else{
-    ui.locationArt.innerHTML=`<div class="placeholder">${location}</div>`;
+/**
+ * Module: BusinessLogic
+ * Input: AppState + DomainData + event metadata.
+ * Output: gemuteerde AppState zonder DOM-afhankelijkheid.
+ * Fase 2 uitbreidingspunten: deterministic seeds, achievements, analytics hooks.
+ */
+const BusinessLogic = (() => {
+  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const now = () => Date.now();
+
+  function weatherKey(state) {
+    return state.timeOfDay === 'night' && state.weather === 'sunny' ? 'clear' : state.weather;
+  }
+
+  function pickAmbient(state) {
+    const map = DomainData.AMBIENT[state.currentLocation] || DomainData.AMBIENT.house;
+    const block = map[weatherKey(state)] || map.sunny;
+    const list = block[state.timeOfDay] || block.day || block.night || ['Idle'];
+    state.currentActivity = rand(list);
+    state.eventEndTime = now() + ((6 + Math.floor(Math.random() * 10)) * 60 * 1000);
+    state.eventType = 'ambient';
+  }
+
+  function maybeStartSpecial(state) {
+    const dayKey = state.virtualClock.dayCounter;
+    if (state.lastVirtualDay === dayKey) return false;
+    state.lastVirtualDay = dayKey;
+    if (Math.random() > 0.08) return false;
+
+    const available = DomainData.SPECIAL.filter((s) => s.weather.includes(state.weather));
+    if (!available.length) return false;
+
+    const evt = rand(available);
+    state.currentLocation = evt.name;
+    state.currentActivity = rand(evt.activities);
+    state.eventEndTime = now() + (4 + Math.floor(Math.random() * 3)) * 60 * 60 * 1000;
+    state.eventType = 'special';
+    return true;
+  }
+
+  function reconcileEventState(state, { force = false } = {}) {
+    if (!force && now() < state.eventEndTime) return;
+    if (state.eventType === 'special' && now() >= state.eventEndTime) state.currentLocation = 'house';
+
+    if (!maybeStartSpecial(state)) {
+      if (state.currentLocation !== 'house' && state.currentLocation !== 'hill') state.currentLocation = 'house';
+      state.currentLocation = Math.random() < 0.18 ? 'hill' : 'house';
+      pickAmbient(state);
+    }
+  }
+
+  function tickVirtualClock(state) {
+    const previousMinutes = state.virtualClock.minutes;
+    state.virtualClock.minutes = (state.virtualClock.minutes + state.virtualClock.realToVirtualMinutes) % (24 * 60);
+    if (state.virtualClock.minutes < previousMinutes) state.virtualClock.dayCounter += 1;
+    state.timeOfDay = (state.virtualClock.minutes >= 6 * 60 && state.virtualClock.minutes < 21 * 60) ? 'day' : 'night';
+  }
+
+  function applyExternalPartialState(state, partial) {
+    if (!partial || typeof partial !== 'object') return;
+    if (typeof partial.weather === 'string') state.weather = partial.weather;
+    if (typeof partial.timeOfDay === 'string') state.timeOfDay = partial.timeOfDay;
+    if (typeof partial.currentLocation === 'string') state.currentLocation = partial.currentLocation;
+    if (typeof partial.eventType === 'string') state.eventType = partial.eventType;
+  }
+
+  return { reconcileEventState, tickVirtualClock, applyExternalPartialState };
+})();
+
+/**
+ * Module: Renderer
+ * Input: AppState snapshot.
+ * Output: alle DOM-updates (scene, HUD, effects).
+ * Fase 2 uitbreidingspunten: canvas renderer, theme packs, accessibility overlays.
+ */
+const Renderer = (() => {
+  const ui = {
+    scene: document.getElementById('scene'),
+    loc: document.getElementById('vLoc'),
+    act: document.getElementById('vAct'),
+    type: document.getElementById('vType'),
+    weather: document.getElementById('vWeather'),
+    time: document.getElementById('vTime'),
+    clock: document.getElementById('vClock'),
+    locationArt: document.getElementById('locationArt'),
+    ufo: document.getElementById('ufo'),
+    friend: document.getElementById('friend'),
+    partyHat: document.getElementById('partyHat')
+  };
+
+  function renderScene(state) {
+    ui.scene.classList.remove('sunny', 'rainy', 'stormy', 'is-night');
+    ui.scene.classList.add(state.weather);
+    if (state.timeOfDay === 'night') ui.scene.classList.add('is-night');
+
+    if (state.currentLocation === 'house') {
+      ui.locationArt.innerHTML = '<div id="locHouse" class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div><div class="window left"></div><div class="window right"></div></div>';
+    } else if (state.currentLocation === 'hill') {
+      ui.locationArt.innerHTML = '<div class="placeholder">HILL<br/>🌳⛰️</div>';
+    } else {
+      ui.locationArt.innerHTML = `<div class="placeholder">${state.currentLocation}</div>`;
+    }
+  }
+
+  function renderHUD(state) {
+    ui.loc.textContent = state.currentLocation;
+    ui.act.textContent = state.currentActivity;
+    ui.type.textContent = state.eventType;
+    ui.weather.textContent = state.weather;
+    ui.time.textContent = state.timeOfDay;
+    const hour = Math.floor((state.virtualClock.minutes % (24 * 60)) / 60);
+    const min = Math.floor(state.virtualClock.minutes % 60);
+    ui.clock.textContent = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  }
+
+  function renderEffects(state) {
+    ui.friend.classList.remove('show');
+    ui.partyHat.classList.remove('show');
+
+    if (state.timeOfDay === 'night' && Math.random() < 0.009) {
+      ui.ufo.classList.remove('fly');
+      void ui.ufo.offsetWidth;
+      ui.ufo.classList.add('fly');
+    }
+    if (state.currentLocation === 'house' && Math.random() < 0.009) ui.partyHat.classList.add('show');
+    if (state.currentLocation !== 'house' && Math.random() < 0.009) ui.friend.classList.add('show');
+  }
+
+  function renderAll(state, { includeEffects = false } = {}) {
+    renderScene(state);
+    renderHUD(state);
+    if (includeEffects) renderEffects(state);
+  }
+
+  return { renderScene, renderHUD, renderEffects, renderAll };
+})();
+
+/**
+ * Module: StateMachine
+ * Input: expliciet event-object ({ type, payload }).
+ * Output: bijgewerkte AppState + centrale render trigger.
+ * Fase 2 uitbreidingspunten: guard conditions, async side-effects, event queue replay.
+ */
+const StateMachine = {
+  transition(event) {
+    switch (event?.type) {
+      case 'WEATHER_CHANGED':
+        BusinessLogic.applyExternalPartialState(AppState, { weather: event.payload?.weather });
+        BusinessLogic.reconcileEventState(AppState, { force: true });
+        break;
+      case 'TIME_CHANGED':
+        BusinessLogic.applyExternalPartialState(AppState, { timeOfDay: event.payload?.timeOfDay });
+        BusinessLogic.reconcileEventState(AppState, { force: true });
+        break;
+      case 'TICK':
+        BusinessLogic.tickVirtualClock(AppState);
+        BusinessLogic.reconcileEventState(AppState, { force: false });
+        Renderer.renderAll(AppState, { includeEffects: true });
+        return;
+      case 'EVENT_EXPIRED':
+        AppState.eventEndTime = 0;
+        BusinessLogic.reconcileEventState(AppState, { force: true });
+        break;
+      case 'FORCE_UPDATE':
+        BusinessLogic.reconcileEventState(AppState, { force: true });
+        break;
+      default:
+        BusinessLogic.reconcileEventState(AppState, { force: false });
+        break;
+    }
+    Renderer.renderAll(AppState, { includeEffects: false });
+  }
+};
+
+/**
+ * Module: HomeAssistantAdapter
+ * Input: Home Assistant payload (partial state).
+ * Output: vertaalt extern formaat naar StateMachine events.
+ * Fase 2 uitbreidingspunten: schema-validatie, telemetry, debounce/throttle.
+ */
+function applyHomeAssistantState(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  if (typeof payload.weather === 'string') {
+    StateMachine.transition({ type: 'WEATHER_CHANGED', payload: { weather: payload.weather } });
+  }
+  if (typeof payload.timeOfDay === 'string') {
+    StateMachine.transition({ type: 'TIME_CHANGED', payload: { timeOfDay: payload.timeOfDay } });
+  }
+  if (!('weather' in payload) && !('timeOfDay' in payload)) {
+    StateMachine.transition({ type: 'FORCE_UPDATE' });
   }
 }
-function applyEnvironment(){
-  ui.scene.classList.remove('sunny','rainy','stormy','is-night');
-  ui.scene.classList.add(context.weather);
-  if(context.timeOfDay==='night') ui.scene.classList.add('is-night');
-}
-function runEasterEggs(){
-  ui.friend.classList.remove('show');
-  ui.partyHat.classList.remove('show');
-  if(context.timeOfDay==='night' && Math.random()<0.009){
-    ui.ufo.classList.remove('fly');
-    void ui.ufo.offsetWidth;
-    ui.ufo.classList.add('fly');
-  }
-  if(state.currentLocation==='house' && Math.random()<0.009) ui.partyHat.classList.add('show');
-  if(state.currentLocation!=='house' && Math.random()<0.009) ui.friend.classList.add('show');
-}
-function pickAmbient(){
-  const map=AMBIENT[state.currentLocation]||AMBIENT.house;
-  const w=weatherKey();
-  const block=map[w]||map.sunny;
-  const list=block[context.timeOfDay]||block.day||block.night||['Idle'];
-  state.currentActivity=rand(list);
-  state.eventEndTime=Date.now()+((6+Math.floor(Math.random()*10))*60*1000); // 6-15 min
-  state.eventType='ambient';
-}
-function maybeStartSpecial(){
-  const dayKey=context.virtualDayCounter;
-  if(state.lastVirtualDay===dayKey) return false;
-  state.lastVirtualDay=dayKey;
-  if(Math.random()>0.08) return false; // 8% per virtual day start
-  const available=SPECIAL.filter(s=>s.weather.includes(context.weather));
-  if(!available.length) return false;
-  const evt=rand(available);
-  state.currentLocation=evt.name;
-  state.currentActivity=rand(evt.activities);
-  const hours=4+Math.floor(Math.random()*3);
-  state.eventEndTime=Date.now()+hours*60*60*1000;
-  state.eventType='special';
-  return true;
-}
-function updateActivity(force=false){
-  if(!force && Date.now()<state.eventEndTime) return render();
-  if(state.eventType==='special' && Date.now()>=state.eventEndTime){state.currentLocation='house';}
-  if(!maybeStartSpecial()){
-    if(state.currentLocation!=='house'&&state.currentLocation!=='hill') state.currentLocation='house';
-    if(Math.random()<0.18) state.currentLocation='hill'; else state.currentLocation='house';
-    pickAmbient();
-  }
-  render();
-}
-function render(){
-  applyEnvironment();
-  setLocationVisual(state.currentLocation);
-  ui.loc.textContent=state.currentLocation;
-  ui.act.textContent=state.currentActivity;
-  ui.type.textContent=state.eventType;
-  ui.weather.textContent=context.weather;
-  ui.time.textContent=context.timeOfDay;
-  const hour = Math.floor((context.virtualMinutes % (24*60))/60);
-  const min = Math.floor(context.virtualMinutes % 60);
-  ui.clock.textContent=`${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
-}
-function updateFromHA(partial){Object.assign(context,partial);updateActivity(true);} // exposed for later
-window.updateFromHA=updateFromHA;
+window.applyHomeAssistantState = applyHomeAssistantState;
 
-document.querySelectorAll('button[data-weather]').forEach(b=>b.onclick=()=>updateFromHA({weather:b.dataset.weather}));
-document.querySelectorAll('button[data-time]').forEach(b=>b.onclick=()=>updateFromHA({timeOfDay:b.dataset.time}));
-document.getElementById('force').onclick=()=>updateActivity(true);
+/** Module: UI bindings */
+document.querySelectorAll('button[data-weather]').forEach((b) => {
+  b.onclick = () => applyHomeAssistantState({ weather: b.dataset.weather });
+});
+document.querySelectorAll('button[data-time]').forEach((b) => {
+  b.onclick = () => applyHomeAssistantState({ timeOfDay: b.dataset.time });
+});
+document.getElementById('force').onclick = () => StateMachine.transition({ type: 'FORCE_UPDATE' });
 
-updateActivity(true);
-setInterval(()=>updateActivity(false),3*60*1000);
-setInterval(()=>{
-  const previousMinutes = context.virtualMinutes;
-  context.virtualMinutes = (context.virtualMinutes + realToVirtualMinutes)%(24*60);
-  if(context.virtualMinutes < previousMinutes) context.virtualDayCounter += 1;
-  context.timeOfDay = (context.virtualMinutes >= 6*60 && context.virtualMinutes < 21*60) ? 'day' : 'night';
-  runEasterEggs();
-  render();
-},1000);
+/** Module: Schedulers */
+StateMachine.transition({ type: 'FORCE_UPDATE' });
+setInterval(() => {
+  if (Date.now() >= AppState.eventEndTime) {
+    StateMachine.transition({ type: 'EVENT_EXPIRED' });
+  } else {
+    StateMachine.transition({ type: 'FORCE_UPDATE' });
+  }
+}, 3 * 60 * 1000);
+setInterval(() => StateMachine.transition({ type: 'TICK' }), 1000);
 </script>
 </body>
 </html>
