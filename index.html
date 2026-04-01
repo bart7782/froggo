@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Froggo Weather Simulator - Phase 1</title>
+  <style>
+    :root {
+      --sky-day: #87ceeb;
+      --sky-night: #0f1f3d;
+      --grass: #5ba14f;
+      --ground: #4d7f44;
+      --rain-color: rgba(195, 225, 255, 0.9);
+      --storm-flash: rgba(255, 255, 255, 0.45);
+      --text: #1d2a35;
+      --card-bg: rgba(255, 255, 255, 0.85);
+      --house-wall: #f3e5c7;
+      --house-roof: #8d4f2b;
+      --frog: #55b957;
+      --frog-belly: #95d67b;
+      --shadow: rgba(0, 0, 0, 0.2);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: #1f2937;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    #app {
+      width: min(1100px, 100%);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+      background: #eaf6ff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    #scene {
+      position: relative;
+      width: 100%;
+      height: min(68vh, 700px);
+      min-height: 460px;
+      background: linear-gradient(180deg, var(--sky-day), #bfe6ff 55%, var(--grass) 56%, var(--ground) 100%);
+      overflow: hidden;
+      transition: background 500ms ease;
+    }
+
+    #scene.is-night {
+      background: linear-gradient(180deg, var(--sky-night), #2a3f62 56%, #446f40 57%, #345830 100%);
+    }
+
+    #scene.sunny::after {
+      content: "";
+      position: absolute;
+      top: 35px;
+      right: 60px;
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff8a6, #ffd000 70%);
+      box-shadow: 0 0 30px #ffd84f;
+      z-index: 1;
+    }
+
+    #scene.is-night .moon {
+      opacity: 1;
+    }
+
+    .moon {
+      opacity: 0;
+      position: absolute;
+      top: 45px;
+      right: 90px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #d9e5f8;
+      box-shadow: inset -12px -6px 0 #b5c4de, 0 0 24px rgba(214, 229, 255, 0.55);
+      transition: opacity 350ms ease;
+      z-index: 2;
+    }
+
+    .house {
+      position: absolute;
+      left: 8%;
+      bottom: 20%;
+      width: 240px;
+      height: 180px;
+      z-index: 4;
+    }
+
+    .house .wall {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 130px;
+      background: var(--house-wall);
+      border: 4px solid #75492d;
+      border-radius: 10px;
+    }
+
+    .house .roof {
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 130px solid transparent;
+      border-right: 130px solid transparent;
+      border-bottom: 85px solid var(--house-roof);
+      filter: drop-shadow(0 4px 1px rgba(0, 0, 0, 0.14));
+    }
+
+    .house .door {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 52px;
+      height: 76px;
+      background: #7b5130;
+      border: 3px solid #54341f;
+      border-radius: 10px 10px 6px 6px;
+    }
+
+    .house .window {
+      position: absolute;
+      top: 68px;
+      width: 48px;
+      height: 38px;
+      background: #bde9ff;
+      border: 3px solid #5e4b3e;
+      border-radius: 6px;
+    }
+
+    .house .window.left { left: 26px; }
+    .house .window.right { right: 26px; }
+
+    #character {
+      position: absolute;
+      left: 58%;
+      bottom: 18%;
+      width: 100px;
+      height: 98px;
+      z-index: 5;
+      transform-origin: center bottom;
+      animation: frog-idle 3.2s ease-in-out infinite;
+    }
+
+    .frog-body {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: 86px;
+      height: 72px;
+      border-radius: 42px 42px 30px 30px;
+      background: var(--frog);
+      box-shadow: 0 8px 0 var(--shadow);
+    }
+
+    .frog-belly {
+      position: absolute;
+      left: 50%;
+      bottom: 8px;
+      transform: translateX(-50%);
+      width: 56px;
+      height: 40px;
+      border-radius: 26px;
+      background: var(--frog-belly);
+    }
+
+    .frog-eye {
+      position: absolute;
+      top: 10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3px solid #2f6a32;
+    }
+
+    .frog-eye::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #17202c;
+    }
+
+    .frog-eye.left { left: 20px; }
+    .frog-eye.right { right: 20px; }
+
+    .frog-mouth {
+      position: absolute;
+      left: 50%;
+      top: 46px;
+      width: 22px;
+      height: 12px;
+      transform: translateX(-50%);
+      border-bottom: 3px solid #245a2b;
+      border-radius: 0 0 12px 12px;
+    }
+
+    .rain-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 200ms ease;
+      z-index: 3;
+    }
+
+    #scene.rainy .rain-layer,
+    #scene.stormy .rain-layer { opacity: 1; }
+
+    .rain-layer::before,
+    .rain-layer::after {
+      content: "";
+      position: absolute;
+      inset: -120% 0 0 0;
+      background-image: repeating-linear-gradient(
+        110deg,
+        transparent 0 24px,
+        var(--rain-color) 24px 26px,
+        transparent 26px 50px
+      );
+      animation: rain-fall 0.85s linear infinite;
+      opacity: 0.85;
+    }
+
+    .rain-layer::after {
+      inset: -130% 0 0 0;
+      animation-duration: 1.2s;
+      opacity: 0.5;
+    }
+
+    #scene.stormy::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      animation: storm-flash 5s infinite;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    #hud {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.5rem;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.9);
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .hud-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(0, 0, 0, 0.09);
+      border-radius: 10px;
+      padding: 0.65rem;
+      min-height: 72px;
+    }
+
+    .hud-label {
+      font-size: 0.74rem;
+      opacity: 0.65;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.3rem;
+    }
+
+    .hud-value {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-top: 0.4rem;
+    }
+
+    button {
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 0.35rem 0.55rem;
+      font-size: 0.76rem;
+      cursor: pointer;
+    }
+
+    button:hover { background: #eef2ff; }
+
+    @keyframes frog-idle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    @keyframes rain-fall {
+      from { transform: translateY(0); }
+      to { transform: translateY(58%); }
+    }
+
+    @keyframes storm-flash {
+      0%, 45%, 100% { background: transparent; }
+      46% { background: var(--storm-flash); }
+      47% { background: transparent; }
+      65% { background: transparent; }
+      66% { background: rgba(255, 255, 255, 0.28); }
+      67% { background: transparent; }
+    }
+
+    @media (max-width: 900px) {
+      #hud { grid-template-columns: 1fr 1fr; }
+      .house { left: 3%; transform: scale(0.9); transform-origin: left bottom; }
+      #character { left: 66%; }
+    }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <section id="scene" class="sunny day" aria-label="Weather scene">
+      <div class="moon" aria-hidden="true"></div>
+      <div class="rain-layer" aria-hidden="true"></div>
+
+      <!-- Location Placeholder: House -->
+      <div id="location-house" class="house" data-location="house">
+        <div class="roof"></div>
+        <div class="wall"></div>
+        <div class="door"></div>
+        <div class="window left"></div>
+        <div class="window right"></div>
+      </div>
+
+      <!-- Character Placeholder -->
+      <div id="character" class="character" aria-label="Frog character">
+        <div class="frog-eye left"></div>
+        <div class="frog-eye right"></div>
+        <div class="frog-body"></div>
+        <div class="frog-belly"></div>
+        <div class="frog-mouth"></div>
+      </div>
+    </section>
+
+    <section id="hud" aria-label="State monitor">
+      <article class="hud-card">
+        <div class="hud-label">Location</div>
+        <div id="locationValue" class="hud-value">house</div>
+      </article>
+      <article class="hud-card">
+        <div class="hud-label">Activity</div>
+        <div id="activityValue" class="hud-value">Initializing...</div>
+      </article>
+      <article class="hud-card">
+        <div class="hud-label">Weather</div>
+        <div id="weatherValue" class="hud-value">sunny</div>
+      </article>
+      <article class="hud-card">
+        <div class="hud-label">Time</div>
+        <div id="timeValue" class="hud-value">day</div>
+      </article>
+      <article class="hud-card">
+        <div class="hud-label">Debug Controls</div>
+        <div class="controls">
+          <button type="button" data-weather="sunny">Sunny</button>
+          <button type="button" data-weather="rainy">Rainy</button>
+          <button type="button" data-weather="stormy">Stormy</button>
+          <button type="button" data-time="day">Day</button>
+          <button type="button" data-time="night">Night</button>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    /**********************************************************************
+     * HOME ASSISTANT INTEGRATION PLACEHOLDER
+     * ------------------------------------------------------------------
+     * Replace values in `simulationContext` with real Home Assistant data
+     * (weather + day/night) whenever you wire in API calls.
+     **********************************************************************/
+    const simulationContext = {
+      weather: 'sunny', // supported test states: sunny | rainy | stormy
+      timeOfDay: 'day', // supported states: day | night
+      now: Date.now(),
+    };
+
+    /**********************************************************************
+     * STATE MACHINE (Phase 1 Core)
+     * ------------------------------------------------------------------
+     * Owns app state transitions for:
+     * - currentLocation
+     * - currentActivity
+     * - eventEndTime
+     **********************************************************************/
+    const appState = {
+      currentLocation: 'house',
+      currentActivity: null,
+      eventEndTime: null,
+      activeEventType: 'ambient', // reserved for Phase 2 special events
+    };
+
+    const ACTIVITY_CONFIG = {
+      house: {
+        sunny: {
+          day: [
+            'watering the plants in the garden',
+            'hanging tiny laundry on the line',
+            'chasing butterflies by the porch'
+          ],
+          night: [
+            'sitting quietly under the moonlight'
+          ]
+        },
+        rainy: {
+          day: [
+            'looking out the window with a warm drink',
+            'reading a cozy book by a lamp'
+          ],
+          night: [
+            'reading a cozy book by a lamp',
+            'watching raindrops race down the glass'
+          ]
+        },
+        stormy: {
+          day: [
+            'hiding under blankets during thunder'
+          ],
+          night: [
+            'sleeping safely while the storm rumbles outside'
+          ]
+        }
+      }
+    };
+
+    const UI = {
+      scene: document.getElementById('scene'),
+      locationValue: document.getElementById('locationValue'),
+      activityValue: document.getElementById('activityValue'),
+      weatherValue: document.getElementById('weatherValue'),
+      timeValue: document.getElementById('timeValue'),
+    };
+
+    function randomFrom(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function isEventActive(now = Date.now()) {
+      return appState.eventEndTime && now < appState.eventEndTime;
+    }
+
+    function getActivityCandidates() {
+      const locationMap = ACTIVITY_CONFIG[appState.currentLocation] || {};
+      const weatherMap = locationMap[simulationContext.weather] || {};
+      return weatherMap[simulationContext.timeOfDay] || ['idling peacefully'];
+    }
+
+    function applyEnvironmentVisuals() {
+      UI.scene.classList.remove('sunny', 'rainy', 'stormy', 'is-night');
+      UI.scene.classList.add(simulationContext.weather);
+      if (simulationContext.timeOfDay === 'night') {
+        UI.scene.classList.add('is-night');
+      }
+    }
+
+    function renderState() {
+      UI.locationValue.textContent = appState.currentLocation;
+      UI.activityValue.textContent = appState.currentActivity;
+      UI.weatherValue.textContent = simulationContext.weather;
+      UI.timeValue.textContent = simulationContext.timeOfDay;
+      applyEnvironmentVisuals();
+    }
+
+    function setAmbientActivity(minutes = 12) {
+      const candidates = getActivityCandidates();
+      appState.currentActivity = randomFrom(candidates);
+      appState.eventEndTime = Date.now() + minutes * 60 * 1000;
+      appState.activeEventType = 'ambient';
+    }
+
+    function updateActivity(force = false) {
+      // Phase 1 rule: if event still active and no forced refresh, keep current activity.
+      if (!force && isEventActive()) {
+        renderState();
+        return;
+      }
+
+      // Future Phase 2 hook:
+      // 1) Roll for special events at day start.
+      // 2) If special event selected, set location + long eventEndTime.
+      // 3) Otherwise pick ambient activity.
+      setAmbientActivity();
+      renderState();
+    }
+
+    function updateSimulationContext(partial) {
+      Object.assign(simulationContext, partial, { now: Date.now() });
+      updateActivity(true);
+    }
+
+    function initDebugControls() {
+      document.querySelectorAll('button[data-weather]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          updateSimulationContext({ weather: btn.dataset.weather });
+        });
+      });
+
+      document.querySelectorAll('button[data-time]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          updateSimulationContext({ timeOfDay: btn.dataset.time });
+        });
+      });
+    }
+
+    // Initialize app
+    initDebugControls();
+    updateActivity(true);
+
+    // Main scheduler: runs every 3 minutes, as requested.
+    setInterval(() => {
+      updateActivity(false);
+    }, 3 * 60 * 1000);
+  </script>
+</body>
+</html>
