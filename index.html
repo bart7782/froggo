@@ -41,6 +41,11 @@
     .controls{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}button{border:1px solid #0003;background:#f8fbff;border-radius:8px;padding:4px 7px;font-size:.75rem;cursor:pointer}
     @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}} @keyframes fall{to{transform:translateY(58%)}} @keyframes flash{0%,45%,100%{background:transparent}46%{background:#fff7}47%{background:transparent}66%{background:#ffffff44}67%{background:transparent}}
     @keyframes ufo-fly{0%{left:-120px;top:58px}100%{left:calc(100% + 120px);top:26px}}
+    #docs{padding:14px 16px 18px;background:#fff;border-top:1px solid #0002;line-height:1.45}
+    #docs h2{margin:.1rem 0 .4rem;font-size:1.05rem}
+    #docs h3{margin:.9rem 0 .25rem;font-size:.92rem}
+    #docs ol,#docs ul{margin:.2rem 0 .3rem 1.2rem;padding:0}
+    #docs code{background:#eef3f8;border:1px solid #d5e0eb;padding:.08rem .35rem;border-radius:5px}
     @media(max-width:960px){#hud{grid-template-columns:1fr 1fr}.value{font-size:.9rem}}
   </style>
 </head>
@@ -68,6 +73,60 @@
       <button data-weather="sunny">Sunny</button><button data-weather="rainy">Rainy</button><button data-weather="stormy">Stormy</button>
       <button data-time="day">Day</button><button data-time="night">Night</button><button id="force">Force update</button>
     </div></article>
+  </section>
+  <section id="docs" aria-label="Deploy en Home Assistant documentatie">
+    <h2>Deploy &amp; Home Assistant korte handleiding</h2>
+
+    <h3>1) Private repo aanmaken + commit/push + GitHub Pages op <code>main</code>/root</h3>
+    <ol>
+      <li>Maak een nieuwe <strong>private</strong> repository op GitHub.</li>
+      <li>In je lokale map:
+        <code>git init</code>,
+        <code>git add .</code>,
+        <code>git commit -m "Initial commit"</code>.
+      </li>
+      <li>Koppel remote en push:
+        <code>git branch -M main</code>,
+        <code>git remote add origin &lt;repo-url&gt;</code>,
+        <code>git push -u origin main</code>.
+      </li>
+      <li>Ga naar <em>Settings → Pages</em> en kies:
+        <code>Source: Deploy from a branch</code>,
+        <code>Branch: main</code>,
+        <code>Folder: / (root)</code>.</li>
+    </ol>
+
+    <h3>2) Let op privacy bij Pages op Free-account</h3>
+    <p>
+      Ook met een private repository kan de GitHub Pages-site vaak publiek bereikbaar zijn via directe URL.
+      Controleer altijd expliciet wie de URL kan openen.
+    </p>
+
+    <h3>3) Mogelijke mitigaties</h3>
+    <ul>
+      <li><strong>Obscure URL</strong>: gebruik een moeilijk te raden pad/naam (beperkte bescherming).</li>
+      <li><strong>Access control</strong>: gebruik platform-opties voor authenticatie/toegang als jouw plan dat ondersteunt.</li>
+      <li><strong>Voorkeur voor gevoelige data</strong>: host lokaal op je LAN (bijv. op Home Assistant host of NAS) i.p.v. publiek internet.</li>
+    </ul>
+
+    <h3>4) Home Assistant embedding voorbeelden</h3>
+    <p><strong>Los iframe (bijv. in een pagina of panel):</strong></p>
+    <pre><code>&lt;iframe
+  src="https://jouw-gepubliceerde-url/"
+  style="width:100%;height:680px;border:0;"
+  loading="lazy"&gt;
+&lt;/iframe&gt;</code></pre>
+    <p><strong>Lovelace dashboard kaart (manual card):</strong></p>
+    <pre><code>type: iframe
+url: https://jouw-gepubliceerde-url/
+aspect_ratio: 70%</code></pre>
+
+    <h3>5) Korte productie-checklist</h3>
+    <ul>
+      <li><strong>Cache busting</strong>: verhoog versienummer in asset-URL’s (bijv. <code>?v=2026-04-01</code>) bij elke release.</li>
+      <li><strong>Backup</strong>: maak periodieke backup van repo én werkende build.</li>
+      <li><strong>Update-procedure</strong>: test lokaal, commit/tag release, deploy, en verifieer in Home Assistant.</li>
+    </ul>
   </section>
 </main>
 <script>
