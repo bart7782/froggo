@@ -74,7 +74,8 @@
 /* Home Assistant mapping punt:
    updateFromHA({weather:'sunny', timeOfDay:'day'}) aanroepen met echte API data. */
 const context={weather:'sunny',timeOfDay:'day',virtualMinutes:12*60,virtualDayCounter:0};
-const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',lastVirtualDay:null};
+const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',lastVirtualDay:null,lastAmbientByLocation:{}};
+const DEBUG_MODE = new URLSearchParams(window.location.search).get('debug') === '1';
 
 const AMBIENT={
  house:{sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},clear:{night:['Sleeping in bed','Stargazing on the porch']},rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},stormy:{day:['Hiding under the covers'],night:['Hiding under the covers']}},
@@ -119,15 +120,31 @@ function runEasterEggs(){
   if(state.currentLocation==='house' && Math.random()<0.009) ui.partyHat.classList.add('show');
   if(state.currentLocation!=='house' && Math.random()<0.009) ui.friend.classList.add('show');
 }
-function pickAmbient(){
-  const map=AMBIENT[state.currentLocation]||AMBIENT.house;
-  const w=weatherKey();
-  const block=map[w]||map.sunny;
-  const list=block[context.timeOfDay]||block.day||block.night||['Idle'];
-  state.currentActivity=rand(list);
-  state.eventEndTime=Date.now()+((6+Math.floor(Math.random()*10))*60*1000); // 6-15 min
-  state.eventType='ambient';
-}
+const ActivityEngine={
+  pickAmbient(nextState){
+    const location=nextState.currentLocation;
+    const map=AMBIENT[location]||AMBIENT.house;
+    const w=weatherKey();
+    const block=map[w]||map.sunny;
+    const list=block[context.timeOfDay]||block.day||block.night||['Idle'];
+    const previous=nextState.lastAmbientByLocation[location];
+    let candidates=list;
+    if(list.length>1 && previous){
+      const filtered=list.filter(activity=>activity!==previous);
+      if(filtered.length) candidates=filtered;
+    }
+    const picked=rand(candidates);
+    nextState.currentActivity=picked;
+    nextState.lastAmbientByLocation[location]=picked;
+    const ambientMinutes=6+Math.floor(Math.random()*15); // 6-20 min
+    nextState.eventEndTime=Date.now()+(ambientMinutes*60*1000);
+    nextState.eventType='ambient';
+    if(DEBUG_MODE){
+      const reason=`ambient gekozen: locatie=${location}, weer=${w}, dagdeel=${context.timeOfDay}, pool=${list.length}, candidates=${candidates.length}, gekozen="${picked}"`;
+      console.debug(reason);
+    }
+  }
+};
 function maybeStartSpecial(){
   const dayKey=context.virtualDayCounter;
   if(state.lastVirtualDay===dayKey) return false;
@@ -149,7 +166,7 @@ function updateActivity(force=false){
   if(!maybeStartSpecial()){
     if(state.currentLocation!=='house'&&state.currentLocation!=='hill') state.currentLocation='house';
     if(Math.random()<0.18) state.currentLocation='hill'; else state.currentLocation='house';
-    pickAmbient();
+    ActivityEngine.pickAmbient(state);
   }
   render();
 }
@@ -165,7 +182,14 @@ function render(){
   const min = Math.floor(context.virtualMinutes % 60);
   ui.clock.textContent=`${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
 }
-function updateFromHA(partial){Object.assign(context,partial);updateActivity(true);} // exposed for later
+function updateFromHA(partial){
+  const previousWeather=context.weather;
+  const previousTimeOfDay=context.timeOfDay;
+  Object.assign(context,partial);
+  const weatherChanged=previousWeather!==context.weather;
+  const timeOfDayChanged=previousTimeOfDay!==context.timeOfDay;
+  updateActivity(weatherChanged || timeOfDayChanged);
+} // exposed for later
 window.updateFromHA=updateFromHA;
 
 document.querySelectorAll('button[data-weather]').forEach(b=>b.onclick=()=>updateFromHA({weather:b.dataset.weather}));
@@ -176,9 +200,12 @@ updateActivity(true);
 setInterval(()=>updateActivity(false),3*60*1000);
 setInterval(()=>{
   const previousMinutes = context.virtualMinutes;
+  const previousTimeOfDay = context.timeOfDay;
   context.virtualMinutes = (context.virtualMinutes + realToVirtualMinutes)%(24*60);
   if(context.virtualMinutes < previousMinutes) context.virtualDayCounter += 1;
   context.timeOfDay = (context.virtualMinutes >= 6*60 && context.virtualMinutes < 21*60) ? 'day' : 'night';
+  if(previousTimeOfDay!==context.timeOfDay) updateActivity(true);
+  if(Date.now()>=state.eventEndTime) updateActivity(false);
   runEasterEggs();
   render();
 },1000);
