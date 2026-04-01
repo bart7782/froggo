@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Froggo Weather Simulator - Functionele Build</title>
   <style>
-    :root{--sky:#8bd6ff;--sky-night:#101a33;--grass:#5faa53;--ground:#416f3b;--panel:#ffffffd9;--text:#15202b;--frog:#57c85b;--frog2:#98dd78}
+    :root{--sky:#8bd6ff;--sky-night:#101a33;--grass:#5faa53;--ground:#416f3b;--panel:#fffffff2;--text:#0f1722;--muted:#1f3142;--frog:#57c85b;--frog2:#98dd78}
     *{box-sizing:border-box} body{margin:0;background:#0f172a;color:var(--text);font-family:system-ui,Segoe UI,Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;padding:14px}
     #app{width:min(1160px,100%);border-radius:18px;overflow:hidden;box-shadow:0 18px 40px #0008;background:#eaf4ff}
     #scene{position:relative;height:min(68vh,700px);min-height:460px;background:linear-gradient(180deg,var(--sky),#c7ecff 56%,var(--grass) 57%,var(--ground) 100%);transition:background .45s}
@@ -36,12 +36,30 @@
     .eye.left{left:21px}.eye.right{right:21px}.body{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:86px;height:72px;border-radius:42px 42px 30px 30px;background:var(--frog);box-shadow:0 8px #0003}
     .belly{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:56px;height:40px;border-radius:26px;background:var(--frog2)}
     .mouth{position:absolute;left:50%;top:46px;transform:translateX(-50%);width:22px;height:12px;border-bottom:3px solid #245a2b;border-radius:0 0 12px 12px}
-    #hud{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:10px;background:#ffffffe6;border-top:1px solid #0002}
-    .card{background:var(--panel);border:1px solid #0002;border-radius:10px;padding:8px;min-height:76px}.label{font-size:.72rem;opacity:.66;text-transform:uppercase}.value{font-weight:700;margin-top:3px;font-size:.93rem}
-    .controls{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}button{border:1px solid #0003;background:#f8fbff;border-radius:8px;padding:4px 7px;font-size:.75rem;cursor:pointer}
+    #hud{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:12px;background:#fffffff0;border-top:1px solid #0002}
+    .card{background:var(--panel);border:1px solid #0003;border-radius:10px;padding:10px;min-height:82px}
+    .label{font-size:.78rem;letter-spacing:.03em;color:var(--muted);font-weight:700;text-transform:uppercase}
+    .value{font-weight:800;margin-top:4px;font-size:1.03rem;color:var(--text);line-height:1.35}
+    .controls{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    button{border:1px solid #0003;background:#f8fbff;border-radius:8px;padding:5px 8px;font-size:.83rem;font-weight:700;cursor:pointer}
+    button:focus-visible{outline:3px solid #125ba7;outline-offset:2px}
+    #scene.is-idle #character,#scene.is-idle .rain::before,#scene.is-idle .rain::after,#scene.is-idle #ufo.fly,#scene.is-idle::before{animation-play-state:paused}
     @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}} @keyframes fall{to{transform:translateY(58%)}} @keyframes flash{0%,45%,100%{background:transparent}46%{background:#fff7}47%{background:transparent}66%{background:#ffffff44}67%{background:transparent}}
     @keyframes ufo-fly{0%{left:-120px;top:58px}100%{left:calc(100% + 120px);top:26px}}
-    @media(max-width:960px){#hud{grid-template-columns:1fr 1fr}.value{font-size:.9rem}}
+    @media(max-width:960px){#hud{grid-template-columns:1fr 1fr}.value{font-size:.96rem}}
+    @media (min-aspect-ratio:16/9) and (min-width:1000px){
+      #app{width:min(1320px,97vw)}
+      #scene{height:min(70vh,760px)}
+      #hud{grid-template-columns:repeat(7,minmax(0,1fr))}
+    }
+    @media (max-aspect-ratio:16/9) and (min-width:720px) and (max-width:1200px){
+      #scene{height:min(62vh,640px);min-height:420px}
+      #hud{grid-template-columns:repeat(3,minmax(0,1fr))}
+      #character{left:60%}
+    }
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+    }
   </style>
 </head>
 <body>
@@ -92,6 +110,11 @@ const SPECIAL=[
 const ui={scene:document.getElementById('scene'),loc:document.getElementById('vLoc'),act:document.getElementById('vAct'),type:document.getElementById('vType'),weather:document.getElementById('vWeather'),time:document.getElementById('vTime'),clock:document.getElementById('vClock'),locationArt:document.getElementById('locationArt'),ufo:document.getElementById('ufo'),friend:document.getElementById('friend'),partyHat:document.getElementById('partyHat')};
 const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
 const realToVirtualMinutes = 5; // 1 sec echt = 5 min virtueel
+const reduceMotionQuery=window.matchMedia('(prefers-reduced-motion: reduce)');
+let reducedMotion=reduceMotionQuery.matches;
+const lastPaint={location:null,weather:null,timeOfDay:null,activity:null,eventType:null,clock:null};
+let lastVisualMutation=Date.now();
+const IDLE_THRESHOLD_MS=12000;
 
 function weatherKey(){return context.timeOfDay==='night'&&context.weather==='sunny'?'clear':context.weather;}
 function setLocationVisual(location){
@@ -104,11 +127,16 @@ function setLocationVisual(location){
   }
 }
 function applyEnvironment(){
+  const classWeatherChanged=lastPaint.weather!==context.weather;
+  const classTimeChanged=lastPaint.timeOfDay!==context.timeOfDay;
+  if(!classWeatherChanged&&!classTimeChanged) return false;
   ui.scene.classList.remove('sunny','rainy','stormy','is-night');
   ui.scene.classList.add(context.weather);
   if(context.timeOfDay==='night') ui.scene.classList.add('is-night');
+  return true;
 }
 function runEasterEggs(){
+  if(reducedMotion) return;
   ui.friend.classList.remove('show');
   ui.partyHat.classList.remove('show');
   if(context.timeOfDay==='night' && Math.random()<0.009){
@@ -154,19 +182,25 @@ function updateActivity(force=false){
   render();
 }
 function render(){
-  applyEnvironment();
-  setLocationVisual(state.currentLocation);
-  ui.loc.textContent=state.currentLocation;
-  ui.act.textContent=state.currentActivity;
-  ui.type.textContent=state.eventType;
-  ui.weather.textContent=context.weather;
-  ui.time.textContent=context.timeOfDay;
+  let changed=false;
+  if(applyEnvironment()) changed=true;
+  if(lastPaint.location!==state.currentLocation){setLocationVisual(state.currentLocation);changed=true;}
+  if(lastPaint.location!==state.currentLocation){ui.loc.textContent=state.currentLocation;}
+  if(lastPaint.activity!==state.currentActivity){ui.act.textContent=state.currentActivity;changed=true;}
+  if(lastPaint.eventType!==state.eventType){ui.type.textContent=state.eventType;changed=true;}
+  if(lastPaint.weather!==context.weather){ui.weather.textContent=context.weather;changed=true;}
+  if(lastPaint.timeOfDay!==context.timeOfDay){ui.time.textContent=context.timeOfDay;changed=true;}
   const hour = Math.floor((context.virtualMinutes % (24*60))/60);
   const min = Math.floor(context.virtualMinutes % 60);
-  ui.clock.textContent=`${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  const nextClock=`${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  if(lastPaint.clock!==nextClock){ui.clock.textContent=nextClock;changed=true;}
+  Object.assign(lastPaint,{location:state.currentLocation,weather:context.weather,timeOfDay:context.timeOfDay,activity:state.currentActivity,eventType:state.eventType,clock:nextClock});
+  if(changed) lastVisualMutation=Date.now();
+  ui.scene.classList.toggle('is-idle',Date.now()-lastVisualMutation>IDLE_THRESHOLD_MS);
 }
 function updateFromHA(partial){Object.assign(context,partial);updateActivity(true);} // exposed for later
 window.updateFromHA=updateFromHA;
+reduceMotionQuery.addEventListener('change',e=>{reducedMotion=e.matches;render();});
 
 document.querySelectorAll('button[data-weather]').forEach(b=>b.onclick=()=>updateFromHA({weather:b.dataset.weather}));
 document.querySelectorAll('button[data-time]').forEach(b=>b.onclick=()=>updateFromHA({timeOfDay:b.dataset.time}));
@@ -179,7 +213,7 @@ setInterval(()=>{
   context.virtualMinutes = (context.virtualMinutes + realToVirtualMinutes)%(24*60);
   if(context.virtualMinutes < previousMinutes) context.virtualDayCounter += 1;
   context.timeOfDay = (context.virtualMinutes >= 6*60 && context.virtualMinutes < 21*60) ? 'day' : 'night';
-  runEasterEggs();
+  if(Date.now()-lastVisualMutation < IDLE_THRESHOLD_MS/2) runEasterEggs();
   render();
 },1000);
 </script>
