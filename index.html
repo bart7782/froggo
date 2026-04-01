@@ -76,24 +76,133 @@
 const context={weather:'sunny',timeOfDay:'day',virtualMinutes:12*60,virtualDayCounter:0};
 const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',lastVirtualDay:null};
 
-const AMBIENT={
- house:{sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},clear:{night:['Sleeping in bed','Stargazing on the porch']},rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},stormy:{day:['Hiding under the covers'],night:['Hiding under the covers']}},
- hill:{sunny:{day:['Picnic on a towel','Flying a kite','Painting on an easel']},clear:{night:['Looking through a telescope','Campfire with marshmallows']},cloudy:{day:['Birdwatching with binoculars'],night:['Birdwatching with binoculars']},rainy:{day:['Shelter under a large mushroom'],night:['Shelter under a large mushroom']},stormy:{day:['Clinging to a tree'],night:['Clinging to a tree']}}
+const ACTIVITY_CATALOG={
+ weather:{
+  valid:['sunny','clear','cloudy','rainy','stormy'],
+  aliases:{partlycloudy:'cloudy',pouring:'rainy',lightning:'stormy'},
+  normalize(rawWeather,timeOfDay){
+    const lowered=String(rawWeather||'sunny').toLowerCase();
+    const mapped=this.aliases[lowered]||lowered;
+    if(timeOfDay==='night' && (mapped==='sunny' || mapped==='clear-night')) return 'clear';
+    if(mapped==='clear' && timeOfDay!=='night') return 'sunny';
+    return this.valid.includes(mapped)?mapped:'sunny';
+  }
+ },
+ locations:{
+  house:{
+    ambient:{
+      sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},
+      clear:{night:['Sleeping in bed','Stargazing on the porch']},
+      cloudy:{day:['Watering potted plants on the porch'],night:['Watching drifting clouds from the porch']},
+      rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},
+      stormy:{day:['Hiding under the covers'],night:['Hiding under the covers']}
+    }
+  },
+  hill:{
+    ambient:{
+      sunny:{day:['Picnic on a towel','Flying a kite','Painting on an easel'],night:['Watching the sunset glow']},
+      clear:{night:['Looking through a telescope','Campfire with marshmallows']},
+      cloudy:{day:['Birdwatching with binoculars'],night:['Birdwatching with binoculars']},
+      rainy:{day:['Shelter under a large mushroom'],night:['Shelter under a large mushroom']},
+      stormy:{day:['Clinging to a tree'],night:['Clinging to a tree']}
+    }
+  },
+  Zuiderzeemuseum:{
+    ambient:{
+      sunny:{day:['Sketching old harbor houses'],night:['Listening to evening harbor sounds']},
+      clear:{night:['Walking along the moonlit quay']},
+      cloudy:{day:['Exploring the shipyard workshop'],night:['Following lanterns between exhibits']},
+      rainy:{day:['Watching blacksmith demos from shelter'],night:['Warming up in a historic kitchen']},
+      stormy:{day:['Studying maps in the indoor gallery'],night:['Sheltering in the boathouse']}
+    },
+    special:{weather:['sunny'],activities:['Walking past historic houses','Looking at boats']}
+  },
+  'Boat Trip':{
+    ambient:{
+      sunny:{day:['Watching ripples from the deck'],night:['Docking quietly at the pier']},
+      clear:{night:['Listening to water while anchored']},
+      cloudy:{day:['Checking ropes and life jackets'],night:['Following harbor lights']},
+      rainy:{day:['Sitting in the covered cabin'],night:['Drying off below deck']},
+      stormy:{day:['Staying moored at the harbor'],night:['Waiting out the storm in the cabin']}
+    },
+    special:{weather:['sunny'],activities:["Steering the boat with a captain's hat",'Looking through a telescope']}
+  },
+  Rijksmuseum:{
+    ambient:{
+      sunny:{day:['Browsing Dutch masters in the Gallery of Honour'],night:['Reviewing postcards in the museum shop']},
+      clear:{night:['Walking past the illuminated atrium']},
+      cloudy:{day:['Joining a short guided tour'],night:['Listening to an art podcast outside']},
+      rainy:{day:['Sketching details from classic paintings'],night:['Reading exhibit notes in the café']},
+      stormy:{day:['Taking shelter in the central hall'],night:['Waiting under the museum archway']}
+    },
+    special:{weather:['sunny','rainy','stormy'],activities:["Admiring The Night Watch"]}
+  },
+  Naturalis:{
+    ambient:{
+      sunny:{day:['Exploring the dinosaur hall'],night:['Watching specimen prep behind glass']},
+      clear:{night:['Strolling around illuminated fossils']},
+      cloudy:{day:['Trying an interactive evolution game'],night:['Sorting museum postcards']},
+      rainy:{day:['Listening to a geology mini-lecture'],night:['Studying minerals in a quiet corner']},
+      stormy:{day:['Observing lightning from inside the atrium'],night:['Sheltering near the whale skeleton']}
+    },
+    special:{weather:['sunny','rainy','stormy'],activities:['Looking at a T-Rex skeleton']}
+  },
+  Spoorwegmuseum:{
+    ambient:{
+      sunny:{day:['Exploring old train carriages'],night:['Watching station lights reflect on rails']},
+      clear:{night:['Listening to distant train sounds']},
+      cloudy:{day:['Reading departure boards in the hall'],night:['Taking photos of historic wagons']},
+      rainy:{day:['Drinking cocoa near the platform exhibit'],night:['Waiting in the covered station hall']},
+      stormy:{day:['Touring the indoor model railway'],night:['Staying inside beside a locomotive']}
+    },
+    special:{weather:['sunny','rainy','stormy'],activities:['Standing next to a steam engine']}
+  },
+  'Van Gogh Museum':{
+    ambient:{
+      sunny:{day:['Comparing brushstrokes in sunflower paintings'],night:['Reviewing sketches in the museum bookstore']},
+      clear:{night:['Walking by the softly lit glass façade']},
+      cloudy:{day:['Listening to an audio guide on self-portraits'],night:['Writing notes about color palettes']},
+      rainy:{day:['Taking shelter in the print gallery'],night:['Sipping tea in the museum café']},
+      stormy:{day:['Attending a short indoor talk'],night:['Waiting out thunder in the entrance hall']}
+    },
+    special:{weather:['sunny','rainy','stormy'],activities:["Painting a Sunflowers parody"]}
+  }
+ }
 };
-const SPECIAL=[
- {name:'Zuiderzeemuseum',weather:['sunny'],activities:['Walking past historic houses','Looking at boats']},
- {name:'Boat Trip',weather:['sunny'],activities:["Steering the boat with a captain's hat",'Looking through a telescope']},
- {name:'Rijksmuseum',weather:['sunny','rainy','stormy'],activities:["Admiring The Night Watch"]},
- {name:'Naturalis',weather:['sunny','rainy','stormy'],activities:['Looking at a T-Rex skeleton']},
- {name:'Spoorwegmuseum',weather:['sunny','rainy','stormy'],activities:['Standing next to a steam engine']},
- {name:'Van Gogh Museum',weather:['sunny','rainy','stormy'],activities:["Painting a Sunflowers parody"]}
-];
+const HOME_LOCATIONS=['house','hill'];
 
 const ui={scene:document.getElementById('scene'),loc:document.getElementById('vLoc'),act:document.getElementById('vAct'),type:document.getElementById('vType'),weather:document.getElementById('vWeather'),time:document.getElementById('vTime'),clock:document.getElementById('vClock'),locationArt:document.getElementById('locationArt'),ufo:document.getElementById('ufo'),friend:document.getElementById('friend'),partyHat:document.getElementById('partyHat')};
 const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
 const realToVirtualMinutes = 5; // 1 sec echt = 5 min virtueel
 
-function weatherKey(){return context.timeOfDay==='night'&&context.weather==='sunny'?'clear':context.weather;}
+function weatherKey(){return ACTIVITY_CATALOG.weather.normalize(context.weather,context.timeOfDay);}
+function allSpecialEvents(){
+  return Object.entries(ACTIVITY_CATALOG.locations)
+    .filter(([,cfg])=>cfg.special)
+    .map(([name,cfg])=>({name,...cfg.special}));
+}
+function validateActivityCatalog(){
+  const required=['house','hill','Zuiderzeemuseum','Boat Trip','Rijksmuseum','Naturalis','Spoorwegmuseum','Van Gogh Museum'];
+  const {locations,weather}=ACTIVITY_CATALOG;
+  const issues=[];
+  required.forEach(location=>{
+    const config=locations[location];
+    if(!config){issues.push(`Missing location config: ${location}`);return;}
+    const ambient=config.ambient||{};
+    const ambientCount=weather.valid.reduce((count,key)=>{
+      const block=ambient[key];
+      const day=(block&&Array.isArray(block.day))?block.day:[];
+      const night=(block&&Array.isArray(block.night))?block.night:[];
+      return count+day.length+night.length;
+    },0);
+    const specialCount=Array.isArray(config.special?.activities)?config.special.activities.length:0;
+    if((ambientCount+specialCount)===0) issues.push(`No valid activities found for ${location}`);
+  });
+  if(issues.length){
+    console.error('ACTIVITY_CATALOG validation failed:',issues);
+    throw new Error(`Invalid ACTIVITY_CATALOG: ${issues.join(' | ')}`);
+  }
+}
 function setLocationVisual(location){
   if(location==='house'){
     ui.locationArt.innerHTML='<div id="locHouse" class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div><div class="window left"></div><div class="window right"></div></div>';
@@ -120,7 +229,7 @@ function runEasterEggs(){
   if(state.currentLocation!=='house' && Math.random()<0.009) ui.friend.classList.add('show');
 }
 function pickAmbient(){
-  const map=AMBIENT[state.currentLocation]||AMBIENT.house;
+  const map=ACTIVITY_CATALOG.locations[state.currentLocation]?.ambient||ACTIVITY_CATALOG.locations.house.ambient;
   const w=weatherKey();
   const block=map[w]||map.sunny;
   const list=block[context.timeOfDay]||block.day||block.night||['Idle'];
@@ -133,7 +242,8 @@ function maybeStartSpecial(){
   if(state.lastVirtualDay===dayKey) return false;
   state.lastVirtualDay=dayKey;
   if(Math.random()>0.08) return false; // 8% per virtual day start
-  const available=SPECIAL.filter(s=>s.weather.includes(context.weather));
+  const activeWeather=weatherKey();
+  const available=allSpecialEvents().filter(s=>s.weather.includes(activeWeather) || s.weather.includes(context.weather));
   if(!available.length) return false;
   const evt=rand(available);
   state.currentLocation=evt.name;
@@ -147,7 +257,7 @@ function updateActivity(force=false){
   if(!force && Date.now()<state.eventEndTime) return render();
   if(state.eventType==='special' && Date.now()>=state.eventEndTime){state.currentLocation='house';}
   if(!maybeStartSpecial()){
-    if(state.currentLocation!=='house'&&state.currentLocation!=='hill') state.currentLocation='house';
+    if(!HOME_LOCATIONS.includes(state.currentLocation)) state.currentLocation='house';
     if(Math.random()<0.18) state.currentLocation='hill'; else state.currentLocation='house';
     pickAmbient();
   }
@@ -172,6 +282,7 @@ document.querySelectorAll('button[data-weather]').forEach(b=>b.onclick=()=>updat
 document.querySelectorAll('button[data-time]').forEach(b=>b.onclick=()=>updateFromHA({timeOfDay:b.dataset.time}));
 document.getElementById('force').onclick=()=>updateActivity(true);
 
+validateActivityCatalog();
 updateActivity(true);
 setInterval(()=>updateActivity(false),3*60*1000);
 setInterval(()=>{
