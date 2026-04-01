@@ -74,19 +74,21 @@
 /* Home Assistant mapping punt:
    updateFromHA({weather:'sunny', timeOfDay:'day'}) aanroepen met echte API data. */
 const context={weather:'sunny',timeOfDay:'day',virtualMinutes:12*60,virtualDayCounter:0};
-const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',lastVirtualDay:null};
+const state={currentLocation:'house',currentActivity:'init',eventEndTime:0,eventType:'ambient',pendingDayStartEvent:true};
 
 const AMBIENT={
  house:{sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},clear:{night:['Sleeping in bed','Stargazing on the porch']},rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},stormy:{day:['Hiding under the covers'],night:['Hiding under the covers']}},
  hill:{sunny:{day:['Picnic on a towel','Flying a kite','Painting on an easel']},clear:{night:['Looking through a telescope','Campfire with marshmallows']},cloudy:{day:['Birdwatching with binoculars'],night:['Birdwatching with binoculars']},rainy:{day:['Shelter under a large mushroom'],night:['Shelter under a large mushroom']},stormy:{day:['Clinging to a tree'],night:['Clinging to a tree']}}
 };
-const SPECIAL=[
- {name:'Zuiderzeemuseum',weather:['sunny'],activities:['Walking past historic houses','Looking at boats']},
- {name:'Boat Trip',weather:['sunny'],activities:["Steering the boat with a captain's hat",'Looking through a telescope']},
- {name:'Rijksmuseum',weather:['sunny','rainy','stormy'],activities:["Admiring The Night Watch"]},
- {name:'Naturalis',weather:['sunny','rainy','stormy'],activities:['Looking at a T-Rex skeleton']},
- {name:'Spoorwegmuseum',weather:['sunny','rainy','stormy'],activities:['Standing next to a steam engine']},
- {name:'Van Gogh Museum',weather:['sunny','rainy','stormy'],activities:["Painting a Sunflowers parody"]}
+const SPECIAL_GOOD_WEATHER=[
+ {name:'Zuiderzeemuseum',activities:['Walking past historic houses','Looking at boats']},
+ {name:'Boat Trip',activities:["Steering the boat with a captain's hat",'Looking through a telescope']}
+];
+const SPECIAL_ANY_WEATHER=[
+ {name:'Rijksmuseum',activities:["Admiring The Night Watch"]},
+ {name:'Naturalis',activities:['Looking at a T-Rex skeleton']},
+ {name:'Spoorwegmuseum',activities:['Standing next to a steam engine']},
+ {name:'Van Gogh Museum',activities:["Painting a Sunflowers parody"]}
 ];
 
 const ui={scene:document.getElementById('scene'),loc:document.getElementById('vLoc'),act:document.getElementById('vAct'),type:document.getElementById('vType'),weather:document.getElementById('vWeather'),time:document.getElementById('vTime'),clock:document.getElementById('vClock'),locationArt:document.getElementById('locationArt'),ufo:document.getElementById('ufo'),friend:document.getElementById('friend'),partyHat:document.getElementById('partyHat')};
@@ -128,29 +130,39 @@ function pickAmbient(){
   state.eventEndTime=Date.now()+((6+Math.floor(Math.random()*10))*60*1000); // 6-15 min
   state.eventType='ambient';
 }
-function maybeStartSpecial(){
-  const dayKey=context.virtualDayCounter;
-  if(state.lastVirtualDay===dayKey) return false;
-  state.lastVirtualDay=dayKey;
-  if(Math.random()>0.08) return false; // 8% per virtual day start
-  const available=SPECIAL.filter(s=>s.weather.includes(context.weather));
-  if(!available.length) return false;
-  const evt=rand(available);
-  state.currentLocation=evt.name;
-  state.currentActivity=rand(evt.activities);
-  const hours=4+Math.floor(Math.random()*3);
-  state.eventEndTime=Date.now()+hours*60*60*1000;
-  state.eventType='special';
-  return true;
-}
-function updateActivity(force=false){
-  if(!force && Date.now()<state.eventEndTime) return render();
-  if(state.eventType==='special' && Date.now()>=state.eventEndTime){state.currentLocation='house';}
-  if(!maybeStartSpecial()){
-    if(state.currentLocation!=='house'&&state.currentLocation!=='hill') state.currentLocation='house';
-    if(Math.random()<0.18) state.currentLocation='hill'; else state.currentLocation='house';
-    pickAmbient();
+const EventEngine={
+  maybeStartDayEvent(){
+    if(!state.pendingDayStartEvent) return false;
+    state.pendingDayStartEvent=false;
+    if(Math.random()>0.08) return false; // 8% per virtual day start
+    const available=[...SPECIAL_ANY_WEATHER];
+    if(context.weather==='sunny') available.push(...SPECIAL_GOOD_WEATHER);
+    if(!available.length) return false;
+    const evt=rand(available);
+    const hours=4+Math.floor(Math.random()*3);
+    state.currentLocation=evt.name;
+    state.currentActivity=rand(evt.activities);
+    state.eventType='special';
+    state.eventEndTime=Date.now()+hours*60*60*1000;
+    return true;
   }
+};
+function updateActivity(force=false){
+  const now = Date.now();
+  if(state.eventType==='special' && now<state.eventEndTime) return render();
+
+  if(state.eventType==='special' && now>=state.eventEndTime){
+    state.currentLocation='house';
+    state.eventType='ambient';
+    state.eventEndTime=0;
+  }
+
+  if(EventEngine.maybeStartDayEvent()) return render();
+  if(!force && now<state.eventEndTime) return render();
+
+  if(state.currentLocation!=='house'&&state.currentLocation!=='hill') state.currentLocation='house';
+  if(Math.random()<0.18) state.currentLocation='hill'; else state.currentLocation='house';
+  pickAmbient();
   render();
 }
 function render(){
@@ -177,7 +189,11 @@ setInterval(()=>updateActivity(false),3*60*1000);
 setInterval(()=>{
   const previousMinutes = context.virtualMinutes;
   context.virtualMinutes = (context.virtualMinutes + realToVirtualMinutes)%(24*60);
-  if(context.virtualMinutes < previousMinutes) context.virtualDayCounter += 1;
+  if(context.virtualMinutes < previousMinutes){
+    context.virtualDayCounter += 1;
+    state.pendingDayStartEvent = true;
+    updateActivity(true);
+  }
   context.timeOfDay = (context.virtualMinutes >= 6*60 && context.virtualMinutes < 21*60) ? 'day' : 'night';
   runEasterEggs();
   render();
