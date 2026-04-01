@@ -1,331 +1,317 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Froggo Weather Simulator - Functionele Build</title>
+  <title>Weather Frog Clone - Full Integration (Phase 2)</title>
   <style>
-    :root{--sky:#8bd6ff;--sky-night:#101a33;--grass:#5faa53;--ground:#416f3b;--panel:#ffffffd9;--text:#15202b;--frog:#57c85b;--frog2:#98dd78}
-    *{box-sizing:border-box} body{margin:0;background:#0f172a;color:var(--text);font-family:system-ui,Segoe UI,Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;padding:14px}
-    #app{width:min(1160px,100%);border-radius:18px;overflow:hidden;box-shadow:0 18px 40px #0008;background:#eaf4ff}
-    #scene{position:relative;height:min(68vh,700px);min-height:460px;background:linear-gradient(180deg,var(--sky),#c7ecff 56%,var(--grass) 57%,var(--ground) 100%);transition:background .45s}
-    #scene.is-night{background:linear-gradient(180deg,var(--sky-night),#22365a 56%,#487344 57%,#2f572d 100%)}
-    #scene.sunny::after{content:"";position:absolute;top:30px;right:60px;width:86px;height:86px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff8a2,#ffd200 72%);box-shadow:0 0 30px #ffdf66}
-    .moon{opacity:0;position:absolute;top:45px;right:90px;width:64px;height:64px;border-radius:50%;background:#dce8ff;box-shadow:inset -12px -6px 0 #b5c7e6,0 0 22px #c4d8ff88;transition:opacity .3s}
+    :root {
+      --sky-day:#8dd8ff; --sky-night:#13213f; --sky-rain:#7b8da0; --sky-storm:#2d3749;
+      --ground:#4e8b4b; --panel:#fffffff0; --text:#142033; --muted:#42556b;
+      --frog:#53c95a; --frog-light:#a7e68f;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0e1727;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:12px}
+    #app{width:min(1180px,100%);border-radius:18px;overflow:hidden;box-shadow:0 18px 45px #0008;background:#eaf4ff}
+    #scene{position:relative;min-height:520px;background:linear-gradient(180deg,var(--sky-day) 0 58%,var(--ground) 58% 100%);transition:background .35s ease}
+    #scene.rainy{background:linear-gradient(180deg,var(--sky-rain) 0 58%,var(--ground) 58% 100%)}
+    #scene.stormy{background:linear-gradient(180deg,var(--sky-storm) 0 58%,#3d6a3a 58% 100%)}
+    #scene.is-night{background:linear-gradient(180deg,var(--sky-night) 0 58%,#3f6d3b 58% 100%)}
+
+    .sun,.moon{position:absolute;top:32px;right:52px;width:82px;height:82px;border-radius:50%;transition:opacity .3s}
+    .sun{background:radial-gradient(circle at 35% 35%,#fff7aa,#ffcd32 72%);box-shadow:0 0 32px #ffd86b}
+    .moon{background:#d9e8ff;box-shadow:inset -14px -7px 0 #b8cae8,0 0 22px #c1d5ff88;opacity:0}
+    #scene.is-night .sun{opacity:0}
     #scene.is-night .moon{opacity:1}
-    .rain{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .2s}
-    #scene.rainy .rain,#scene.stormy .rain{opacity:1}
-    .rain::before,.rain::after{content:"";position:absolute;inset:-120% 0 0;background-image:repeating-linear-gradient(110deg,transparent 0 24px,#cae4ffdd 24px 26px,transparent 26px 48px);animation:fall .95s linear infinite}
-    .rain::after{opacity:.55;animation-duration:1.2s;inset:-140% 0 0}
-    #scene.stormy::before{content:"";position:absolute;inset:0;animation:flash 5s infinite;pointer-events:none}
-    #locationArt{position:absolute;left:8%;bottom:19%;width:260px;height:190px}
-    .house .wall{position:absolute;bottom:0;width:100%;height:130px;background:#f5e7ca;border:4px solid #754a2f;border-radius:9px}
-    .house .roof{position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:140px solid transparent;border-right:140px solid transparent;border-bottom:88px solid #8f522e}
-    .house .door{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:56px;height:78px;background:#7a5133;border:3px solid #56361f;border-radius:10px 10px 5px 5px}
-    .house .window{position:absolute;top:64px;width:48px;height:38px;background:#bfe8ff;border:3px solid #5e4d3d;border-radius:6px}
-    .house .window.left{left:28px}.house .window.right{right:28px}
-    .placeholder{position:absolute;bottom:0;left:0;display:grid;place-items:center;width:260px;height:130px;border:3px dashed #18344a66;background:#ffffff22;border-radius:10px;color:#143149;font-weight:700;padding:10px;text-align:center}
-    #ufo{position:absolute;top:52px;left:-120px;font-size:28px;opacity:0;transition:opacity .2s;pointer-events:none}
-    #ufo.fly{opacity:1;animation:ufo-fly 2.2s linear}
-    #friend{position:absolute;right:13%;bottom:18%;font-size:44px;opacity:0;transform:translateY(8px);transition:all .3s}
+
+    .rain-layer{position:absolute;inset:0;pointer-events:none;opacity:0}
+    #scene.rainy .rain-layer,#scene.stormy .rain-layer{opacity:1}
+    .rain-layer::before,.rain-layer::after{content:"";position:absolute;inset:-130% 0 0;background-image:repeating-linear-gradient(110deg,transparent 0 22px,#d9edffdd 22px 24px,transparent 24px 44px);animation:rain 1s linear infinite}
+    .rain-layer::after{opacity:.55;animation-duration:1.3s;inset:-150% 0 0}
+    #scene.stormy::after{content:"";position:absolute;inset:0;pointer-events:none;animation:lightning 5s infinite}
+
+    #location-art{position:absolute;left:7%;bottom:18%;width:340px;height:230px;transition:opacity .25s ease,transform .25s ease}
+    #location-art.traveling{opacity:.35;transform:translateY(6px) scale(.98)}
+
+    .placeholder{position:absolute;inset:0;border:3px dashed #1d3a5466;border-radius:10px;background:#ffffff26;display:grid;place-items:center;padding:12px;text-align:center;font-weight:700;color:#163048}
+    .house .roof{position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:170px solid transparent;border-right:170px solid transparent;border-bottom:96px solid #92572f}
+    .house .wall{position:absolute;bottom:0;width:100%;height:150px;background:#f4e3c6;border:4px solid #7a4f2e;border-radius:10px}
+    .house .door{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:66px;height:88px;background:#7b5435;border:3px solid #5a3924;border-radius:10px 10px 5px 5px}
+    .hill{position:absolute;inset:0}
+    .hill .m1,.hill .m2,.hill .tree{position:absolute}
+    .hill .m1{left:26px;bottom:0;width:170px;height:120px;background:#5f8949;border-radius:80px 80px 0 0}
+    .hill .m2{left:150px;bottom:0;width:180px;height:150px;background:#6fa25a;border-radius:90px 90px 0 0}
+    .hill .tree{left:208px;bottom:78px;width:14px;height:56px;background:#6a4123}
+    .hill .tree::after{content:"";position:absolute;left:-20px;top:-34px;width:54px;height:54px;background:#3f7d41;border-radius:50%}
+
+    #friend{position:absolute;right:12%;bottom:18%;font-size:44px;opacity:0;transform:translateY(8px);transition:all .28s}
     #friend.show{opacity:1;transform:translateY(0)}
-    #partyHat{position:absolute;left:50%;top:-14px;transform:translateX(-50%);display:none}
-    #partyHat.show{display:block}
-    #character{position:absolute;left:57%;bottom:18%;width:102px;height:100px;animation:bob 3.2s ease-in-out infinite}
-    .eye{position:absolute;top:10px;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #2f6d34}.eye::after{content:"";position:absolute;left:8px;top:8px;width:6px;height:6px;border-radius:50%;background:#1a222c}
-    .eye.left{left:21px}.eye.right{right:21px}.body{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:86px;height:72px;border-radius:42px 42px 30px 30px;background:var(--frog);box-shadow:0 8px #0003}
-    .belly{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:56px;height:40px;border-radius:26px;background:var(--frog2)}
-    .mouth{position:absolute;left:50%;top:46px;transform:translateX(-50%);width:22px;height:12px;border-bottom:3px solid #245a2b;border-radius:0 0 12px 12px}
-    #hud{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:10px;background:#ffffffe6;border-top:1px solid #0002}
-    .card{background:var(--panel);border:1px solid #0002;border-radius:10px;padding:8px;min-height:76px}.label{font-size:.72rem;opacity:.66;text-transform:uppercase}.value{font-weight:700;margin-top:3px;font-size:.93rem}
-    .controls{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}button{border:1px solid #0003;background:#f8fbff;border-radius:8px;padding:4px 7px;font-size:.75rem;cursor:pointer}
-    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}} @keyframes fall{to{transform:translateY(58%)}} @keyframes flash{0%,45%,100%{background:transparent}46%{background:#fff7}47%{background:transparent}66%{background:#ffffff44}67%{background:transparent}}
-    @keyframes ufo-fly{0%{left:-120px;top:58px}100%{left:calc(100% + 120px);top:26px}}
-    @media(max-width:960px){#hud{grid-template-columns:1fr 1fr}.value{font-size:.9rem}}
+    #ufo{position:absolute;left:-120px;top:58px;font-size:30px;opacity:0}
+    #ufo.fly{opacity:1;animation:ufo 1.9s linear}
+
+    #frog{position:absolute;left:58%;bottom:18%;width:110px;height:100px;animation:bob 3s ease-in-out infinite}
+    #party-hat{position:absolute;left:50%;top:-18px;transform:translateX(-50%);display:none}
+    #party-hat.show{display:block}
+    .frog-eye{position:absolute;top:8px;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #2f6f35}
+    .frog-eye.left{left:20px}.frog-eye.right{right:20px}
+    .frog-body{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:88px;height:70px;border-radius:40px 40px 28px 28px;background:var(--frog);box-shadow:0 8px #0003}
+    .frog-belly{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:56px;height:38px;border-radius:24px;background:var(--frog-light)}
+
+    #travel-overlay{position:absolute;inset:0;background:#0f1a2bcc;display:grid;place-items:center;color:#fff;font-weight:800;letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s}
+    #travel-overlay.show{opacity:1}
+
+    #hud{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:12px;background:var(--panel);border-top:1px solid #0002}
+    .card{border:1px solid #0002;border-radius:10px;padding:10px;background:#fff}
+    .label{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--muted)}
+    .value{margin-top:4px;font-weight:800;line-height:1.3}
+    .controls{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    button{border:1px solid #0003;border-radius:8px;background:#f7fbff;padding:5px 8px;font-weight:700;cursor:pointer}
+    @keyframes rain{to{transform:translateY(58%)}}
+    @keyframes lightning{0%,45%,100%{background:transparent}46%{background:#fff7}47%{background:transparent}66%{background:#fff4}67%{background:transparent}}
+    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+    @keyframes ufo{0%{left:-120px;top:58px}100%{left:calc(100% + 120px);top:26px}}
+    @media(max-width:980px){#hud{grid-template-columns:1fr 1fr 1fr}}
   </style>
 </head>
 <body>
-<main id="app">
-  <section id="scene" class="sunny">
-    <div class="moon"></div>
-    <div class="rain"></div>
-    <div id="locationArt"></div>
-    <div id="friend" aria-hidden="true">🦊</div>
-    <div id="ufo" aria-hidden="true">🛸</div>
-    <div id="character" aria-label="frog">
-      <div id="partyHat" aria-hidden="true">🎉</div>
-      <div class="eye left"></div><div class="eye right"></div><div class="body"></div><div class="belly"></div><div class="mouth"></div>
-    </div>
-  </section>
-  <section id="hud">
-    <article class="card"><div class="label">Locatie</div><div id="vLoc" class="value">house</div></article>
-    <article class="card"><div class="label">Activiteit</div><div id="vAct" class="value">...</div></article>
-    <article class="card"><div class="label">Event type</div><div id="vType" class="value">ambient</div></article>
-    <article class="card"><div class="label">Weer</div><div id="vWeather" class="value">sunny</div></article>
-    <article class="card"><div class="label">Dagdeel</div><div id="vTime" class="value">day</div></article>
-    <article class="card"><div class="label">Virtuele tijd</div><div id="vClock" class="value">12:00</div></article>
-    <article class="card"><div class="label">Bediening</div><div class="controls">
-      <button data-weather="sunny">Sunny</button><button data-weather="rainy">Rainy</button><button data-weather="stormy">Stormy</button>
-      <button data-time="day">Day</button><button data-time="night">Night</button><button id="force">Force update</button>
-    </div></article>
-  </section>
-</main>
-<script>
-/**
- * Module: AppState
- * Input: initiële defaults en externe partial updates.
- * Output: één centrale stateboom die door alle modules gelezen wordt.
- * Fase 2 uitbreidingspunten: persistente storage, undo/redo stack, multi-character support.
- */
-const AppState = {
-  currentLocation: 'house',
-  currentActivity: 'init',
-  eventEndTime: 0,
-  eventType: 'ambient',
-  weather: 'sunny',
-  timeOfDay: 'day',
-  virtualClock: {
-    minutes: 12 * 60,
-    dayCounter: 0,
-    realToVirtualMinutes: 5
-  },
-  lastVirtualDay: null
-};
+  <main id="app">
+    <section id="scene" class="sunny" aria-label="weather scene">
+      <div class="sun"></div><div class="moon"></div>
+      <div class="rain-layer" aria-hidden="true"></div>
+      <div id="location-art" aria-hidden="true"></div>
+      <div id="friend" aria-hidden="true">🦊</div>
+      <div id="ufo" aria-hidden="true">🛸</div>
+      <div id="frog" aria-label="frog character">
+        <div id="party-hat" aria-hidden="true">🎉🍰</div>
+        <div class="frog-eye left"></div><div class="frog-eye right"></div>
+        <div class="frog-body"></div><div class="frog-belly"></div>
+      </div>
+      <div id="travel-overlay">Travelling to new location...</div>
+    </section>
 
-/**
- * Module: DomainData
- * Input: vaste configuratie-data (ambient/special activities).
- * Output: lookup-tabellen voor businessregels.
- * Fase 2 uitbreidingspunten: remote content, i18n labels, weighted randomness.
- */
-const DomainData = {
-  AMBIENT: {
-    house: { sunny: { day: ['Walking in the garden', 'Hanging up laundry', 'Blowing bubbles'], night: ['Relaxing on the porch'] }, clear: { night: ['Sleeping in bed', 'Stargazing on the porch'] }, rainy: { day: ['Looking out the window'], night: ['Reading a book with a lamp'] }, stormy: { day: ['Hiding under the covers'], night: ['Hiding under the covers'] } },
-    hill: { sunny: { day: ['Picnic on a towel', 'Flying a kite', 'Painting on an easel'] }, clear: { night: ['Looking through a telescope', 'Campfire with marshmallows'] }, cloudy: { day: ['Birdwatching with binoculars'], night: ['Birdwatching with binoculars'] }, rainy: { day: ['Shelter under a large mushroom'], night: ['Shelter under a large mushroom'] }, stormy: { day: ['Clinging to a tree'], night: ['Clinging to a tree'] } }
-  },
-  SPECIAL: [
-    { name: 'Zuiderzeemuseum', weather: ['sunny'], activities: ['Walking past historic houses', 'Looking at boats'] },
-    { name: 'Boat Trip', weather: ['sunny'], activities: ["Steering the boat with a captain's hat", 'Looking through a telescope'] },
-    { name: 'Rijksmuseum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Admiring The Night Watch'] },
-    { name: 'Naturalis', weather: ['sunny', 'rainy', 'stormy'], activities: ['Looking at a T-Rex skeleton'] },
-    { name: 'Spoorwegmuseum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Standing next to a steam engine'] },
-    { name: 'Van Gogh Museum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Painting a Sunflowers parody'] }
-  ]
-};
+    <section id="hud">
+      <article class="card"><div class="label">Location</div><div id="v-location" class="value">house</div></article>
+      <article class="card"><div class="label">Activity</div><div id="v-activity" class="value">...</div></article>
+      <article class="card"><div class="label">Event Type</div><div id="v-event" class="value">ambient</div></article>
+      <article class="card"><div class="label">Weather</div><div id="v-weather" class="value">sunny</div></article>
+      <article class="card"><div class="label">Time</div><div id="v-time" class="value">day</div></article>
+      <article class="card"><div class="label">Controls</div><div class="controls">
+        <button data-weather="sunny">Sunny</button><button data-weather="cloudy">Cloudy</button><button data-weather="rainy">Rainy</button><button data-weather="stormy">Stormy</button>
+        <button data-time="day">Day</button><button data-time="night">Night</button><button id="new-day">Trigger New Day</button>
+      </div></article>
+    </section>
+  </main>
 
-/**
- * Module: BusinessLogic
- * Input: AppState + DomainData + event metadata.
- * Output: gemuteerde AppState zonder DOM-afhankelijkheid.
- * Fase 2 uitbreidingspunten: deterministic seeds, achievements, analytics hooks.
- */
-const BusinessLogic = (() => {
-  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
-  const now = () => Date.now();
+  <script>
+    /**
+     * HOME ASSISTANT READINESS (CENTRAL STATE)
+     * Update from HA by calling:
+     *   window.updateFromHA({
+     *     weather: 'sunny' | 'cloudy' | 'rainy' | 'stormy',
+     *     timeOfDay: 'day' | 'night',
+     *     forecastGood: true|false // optional, defaults from weather==='sunny'
+     *   })
+     * Example HA weather.home mapping: map weather.home condition -> gameState.weather.
+     */
+    const gameState={weather:'sunny',timeOfDay:'day',forecastGood:true,virtualMinutes:12*60,dayCounter:0};
 
-  function weatherKey(state) {
-    return state.timeOfDay === 'night' && state.weather === 'sunny' ? 'clear' : state.weather;
-  }
+    const machine={
+      currentLocation:'house',
+      currentActivity:'Booting...',
+      eventEndTime:0,
+      eventType:'ambient', // ambient | special
+      pendingDayRoll:true,
+      lastAmbientByLocation:{},
+      easterEgg:{ufoUntil:0,friendUntil:0,partyUntil:0}
+    };
 
-  function pickAmbient(state) {
-    const map = DomainData.AMBIENT[state.currentLocation] || DomainData.AMBIENT.house;
-    const block = map[weatherKey(state)] || map.sunny;
-    const list = block[state.timeOfDay] || block.day || block.night || ['Idle'];
-    state.currentActivity = rand(list);
-    state.eventEndTime = now() + ((6 + Math.floor(Math.random() * 10)) * 60 * 1000);
-    state.eventType = 'ambient';
-  }
+    const HOME_BASE_LOCATIONS=['house','hill'];
+    const SPECIAL_EVENTS=[
+      {name:'Zuiderzeemuseum',weatherRule:'good',activities:['Walking past historic houses','Looking at boats']},
+      {name:'Boat Trip',weatherRule:'good',activities:["Steering the boat with a captain\'s hat",'Looking through a telescope']},
+      {name:'Rijksmuseum',weatherRule:'any',activities:["Admiring The Night Watch"]},
+      {name:'Naturalis',weatherRule:'any',activities:['Looking at a T-Rex skeleton']},
+      {name:'Spoorwegmuseum',weatherRule:'any',activities:['Standing next to a steam engine']},
+      {name:'Van Gogh Museum',weatherRule:'any',activities:["Painting a Sunflowers parody"]}
+    ];
 
-  function maybeStartSpecial(state) {
-    const dayKey = state.virtualClock.dayCounter;
-    if (state.lastVirtualDay === dayKey) return false;
-    state.lastVirtualDay = dayKey;
-    if (Math.random() > 0.08) return false;
+    const ACTIVITY_MAP={
+      house:{
+        sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},
+        clear:{night:['Sleeping in bed (inside)','Stargazing on the porch']},
+        cloudy:{day:['Tidying the porch plants'],night:['Listening to quiet wind by the window']},
+        rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},
+        stormy:{day:['Hiding under the covers in bed'],night:['Hiding under the covers in bed']}
+      },
+      hill:{
+        sunny:{day:['Picnic on a towel','Flying a kite','Painting on an easel'],night:['Watching the sunset glow']},
+        clear:{night:['Looking through a telescope','Having a small campfire and roasting marshmallows']},
+        cloudy:{day:['Birdwatching with binoculars'],night:['Birdwatching with binoculars']},
+        rainy:{day:['Seeking shelter under a large mushroom'],night:['Seeking shelter under a large mushroom']},
+        stormy:{day:['Clinging to a tree to avoid being blown away'],night:['Clinging to a tree to avoid being blown away']}
+      }
+    };
 
-    const available = DomainData.SPECIAL.filter((s) => s.weather.includes(state.weather));
-    if (!available.length) return false;
+    const ui={
+      scene:document.getElementById('scene'),locationArt:document.getElementById('location-art'),overlay:document.getElementById('travel-overlay'),
+      vLocation:document.getElementById('v-location'),vActivity:document.getElementById('v-activity'),vEvent:document.getElementById('v-event'),vWeather:document.getElementById('v-weather'),vTime:document.getElementById('v-time'),
+      friend:document.getElementById('friend'),ufo:document.getElementById('ufo'),partyHat:document.getElementById('party-hat')
+    };
 
-    const evt = rand(available);
-    state.currentLocation = evt.name;
-    state.currentActivity = rand(evt.activities);
-    state.eventEndTime = now() + (4 + Math.floor(Math.random() * 3)) * 60 * 60 * 1000;
-    state.eventType = 'special';
-    return true;
-  }
+    const rand=(arr)=>arr[Math.floor(Math.random()*arr.length)];
+    const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 
-  function reconcileEventState(state, { force = false } = {}) {
-    if (!force && now() < state.eventEndTime) return;
-    if (state.eventType === 'special' && now() >= state.eventEndTime) state.currentLocation = 'house';
-
-    if (!maybeStartSpecial(state)) {
-      if (state.currentLocation !== 'house' && state.currentLocation !== 'hill') state.currentLocation = 'house';
-      state.currentLocation = Math.random() < 0.18 ? 'hill' : 'house';
-      pickAmbient(state);
+    function normalizedWeatherKey(){
+      if(gameState.timeOfDay==='night' && gameState.weather==='sunny') return 'clear';
+      return gameState.weather;
     }
-  }
 
-  function tickVirtualClock(state) {
-    const previousMinutes = state.virtualClock.minutes;
-    state.virtualClock.minutes = (state.virtualClock.minutes + state.virtualClock.realToVirtualMinutes) % (24 * 60);
-    if (state.virtualClock.minutes < previousMinutes) state.virtualClock.dayCounter += 1;
-    state.timeOfDay = (state.virtualClock.minutes >= 6 * 60 && state.virtualClock.minutes < 21 * 60) ? 'day' : 'night';
-  }
-
-  function applyExternalPartialState(state, partial) {
-    if (!partial || typeof partial !== 'object') return;
-    if (typeof partial.weather === 'string') state.weather = partial.weather;
-    if (typeof partial.timeOfDay === 'string') state.timeOfDay = partial.timeOfDay;
-    if (typeof partial.currentLocation === 'string') state.currentLocation = partial.currentLocation;
-    if (typeof partial.eventType === 'string') state.eventType = partial.eventType;
-  }
-
-  return { reconcileEventState, tickVirtualClock, applyExternalPartialState };
-})();
-
-/**
- * Module: Renderer
- * Input: AppState snapshot.
- * Output: alle DOM-updates (scene, HUD, effects).
- * Fase 2 uitbreidingspunten: canvas renderer, theme packs, accessibility overlays.
- */
-const Renderer = (() => {
-  const ui = {
-    scene: document.getElementById('scene'),
-    loc: document.getElementById('vLoc'),
-    act: document.getElementById('vAct'),
-    type: document.getElementById('vType'),
-    weather: document.getElementById('vWeather'),
-    time: document.getElementById('vTime'),
-    clock: document.getElementById('vClock'),
-    locationArt: document.getElementById('locationArt'),
-    ufo: document.getElementById('ufo'),
-    friend: document.getElementById('friend'),
-    partyHat: document.getElementById('partyHat')
-  };
-
-  function renderScene(state) {
-    ui.scene.classList.remove('sunny', 'rainy', 'stormy', 'is-night');
-    ui.scene.classList.add(state.weather);
-    if (state.timeOfDay === 'night') ui.scene.classList.add('is-night');
-
-    if (state.currentLocation === 'house') {
-      ui.locationArt.innerHTML = '<div id="locHouse" class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div><div class="window left"></div><div class="window right"></div></div>';
-    } else if (state.currentLocation === 'hill') {
-      ui.locationArt.innerHTML = '<div class="placeholder">HILL<br/>🌳⛰️</div>';
-    } else {
-      ui.locationArt.innerHTML = `<div class="placeholder">${state.currentLocation}</div>`;
+    function setLocationVisual(location){
+      if(location==='house'){
+        ui.locationArt.innerHTML='<div class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div></div>';
+      }else if(location==='hill'){
+        ui.locationArt.innerHTML='<div class="hill"><div class="m1"></div><div class="m2"></div><div class="tree"></div></div>';
+      }else if(location==='Zuiderzeemuseum'){
+        ui.locationArt.innerHTML='<div class="placeholder">🏛️ Zuiderzeemuseum<br/>Historic harbor houses & boats</div>';
+      }else if(location==='Boat Trip'){
+        ui.locationArt.innerHTML='<div class="placeholder">⛵ Boat Trip<br/>Captain on deck</div>';
+      }else if(location==='Rijksmuseum'){
+        ui.locationArt.innerHTML='<div class="placeholder">🖼️ Rijksmuseum<br/>The Night Watch</div>';
+      }else if(location==='Naturalis'){
+        ui.locationArt.innerHTML='<div class="placeholder">🦖 Naturalis<br/>T-Rex skeleton hall</div>';
+      }else if(location==='Spoorwegmuseum'){
+        ui.locationArt.innerHTML='<div class="placeholder">🚂 Spoorwegmuseum<br/>Steam engine exhibit</div>';
+      }else if(location==='Van Gogh Museum'){
+        ui.locationArt.innerHTML='<div class="placeholder">🌻 Van Gogh Museum<br/>Sunflowers parody</div>';
+      }
     }
-  }
 
-  function renderHUD(state) {
-    ui.loc.textContent = state.currentLocation;
-    ui.act.textContent = state.currentActivity;
-    ui.type.textContent = state.eventType;
-    ui.weather.textContent = state.weather;
-    ui.time.textContent = state.timeOfDay;
-    const hour = Math.floor((state.virtualClock.minutes % (24 * 60)) / 60);
-    const min = Math.floor(state.virtualClock.minutes % 60);
-    ui.clock.textContent = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-  }
-
-  function renderEffects(state) {
-    ui.friend.classList.remove('show');
-    ui.partyHat.classList.remove('show');
-
-    if (state.timeOfDay === 'night' && Math.random() < 0.009) {
-      ui.ufo.classList.remove('fly');
-      void ui.ufo.offsetWidth;
-      ui.ufo.classList.add('fly');
+    function applyEnvironment(){
+      ui.scene.classList.remove('sunny','rainy','stormy','is-night');
+      ui.scene.classList.add(gameState.weather);
+      if(gameState.timeOfDay==='night') ui.scene.classList.add('is-night');
     }
-    if (state.currentLocation === 'house' && Math.random() < 0.009) ui.partyHat.classList.add('show');
-    if (state.currentLocation !== 'house' && Math.random() < 0.009) ui.friend.classList.add('show');
-  }
 
-  function renderAll(state, { includeEffects = false } = {}) {
-    renderScene(state);
-    renderHUD(state);
-    if (includeEffects) renderEffects(state);
-  }
-
-  return { renderScene, renderHUD, renderEffects, renderAll };
-})();
-
-/**
- * Module: StateMachine
- * Input: expliciet event-object ({ type, payload }).
- * Output: bijgewerkte AppState + centrale render trigger.
- * Fase 2 uitbreidingspunten: guard conditions, async side-effects, event queue replay.
- */
-const StateMachine = {
-  transition(event) {
-    switch (event?.type) {
-      case 'WEATHER_CHANGED':
-        BusinessLogic.applyExternalPartialState(AppState, { weather: event.payload?.weather });
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      case 'TIME_CHANGED':
-        BusinessLogic.applyExternalPartialState(AppState, { timeOfDay: event.payload?.timeOfDay });
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      case 'TICK':
-        BusinessLogic.tickVirtualClock(AppState);
-        BusinessLogic.reconcileEventState(AppState, { force: false });
-        Renderer.renderAll(AppState, { includeEffects: true });
-        return;
-      case 'EVENT_EXPIRED':
-        AppState.eventEndTime = 0;
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      case 'FORCE_UPDATE':
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      default:
-        BusinessLogic.reconcileEventState(AppState, { force: false });
-        break;
+    function pickAmbientActivity(location){
+      const cfg=ACTIVITY_MAP[location]||ACTIVITY_MAP.house;
+      const weatherCfg=cfg[normalizedWeatherKey()]||cfg.sunny;
+      const list=weatherCfg[gameState.timeOfDay]||weatherCfg.day||weatherCfg.night||['Idle'];
+      const prev=machine.lastAmbientByLocation[location];
+      const candidates=(list.length>1&&prev)?list.filter(v=>v!==prev):list;
+      const chosen=rand(candidates.length?candidates:list);
+      machine.lastAmbientByLocation[location]=chosen;
+      return chosen;
     }
-    Renderer.renderAll(AppState, { includeEffects: false });
-  }
-};
 
-/**
- * Module: HomeAssistantAdapter
- * Input: Home Assistant payload (partial state).
- * Output: vertaalt extern formaat naar StateMachine events.
- * Fase 2 uitbreidingspunten: schema-validatie, telemetry, debounce/throttle.
- */
-function applyHomeAssistantState(payload) {
-  if (!payload || typeof payload !== 'object') return;
-  if (typeof payload.weather === 'string') {
-    StateMachine.transition({ type: 'WEATHER_CHANGED', payload: { weather: payload.weather } });
-  }
-  if (typeof payload.timeOfDay === 'string') {
-    StateMachine.transition({ type: 'TIME_CHANGED', payload: { timeOfDay: payload.timeOfDay } });
-  }
-  if (!('weather' in payload) && !('timeOfDay' in payload)) {
-    StateMachine.transition({ type: 'FORCE_UPDATE' });
-  }
-}
-window.applyHomeAssistantState = applyHomeAssistantState;
+    function maybeStartSpecialEvent(){
+      if(!machine.pendingDayRoll) return false;
+      machine.pendingDayRoll=false;
+      if(Math.random()>0.10) return false; // small chance at new day
+      const good=gameState.forecastGood ?? (gameState.weather==='sunny');
+      const allowed=SPECIAL_EVENTS.filter(e=>e.weatherRule==='any' || (e.weatherRule==='good'&&good));
+      if(!allowed.length) return false;
+      const event=rand(allowed);
+      machine.currentLocation=event.name;
+      machine.currentActivity=rand(event.activities);
+      machine.eventType='special';
+      machine.eventEndTime=Date.now()+((4+Math.floor(Math.random()*3))*60*60*1000); // 4-6h
+      return true;
+    }
 
-/** Module: UI bindings */
-document.querySelectorAll('button[data-weather]').forEach((b) => {
-  b.onclick = () => applyHomeAssistantState({ weather: b.dataset.weather });
-});
-document.querySelectorAll('button[data-time]').forEach((b) => {
-  b.onclick = () => applyHomeAssistantState({ timeOfDay: b.dataset.time });
-});
-document.getElementById('force').onclick = () => StateMachine.transition({ type: 'FORCE_UPDATE' });
+    async function travelTo(location){
+      ui.overlay.classList.add('show');
+      ui.locationArt.classList.add('traveling');
+      await sleep(380);
+      machine.currentLocation=location;
+      setLocationVisual(location);
+      await sleep(380);
+      ui.locationArt.classList.remove('traveling');
+      ui.overlay.classList.remove('show');
+    }
 
-/** Module: Schedulers */
-StateMachine.transition({ type: 'FORCE_UPDATE' });
-setInterval(() => {
-  if (Date.now() >= AppState.eventEndTime) {
-    StateMachine.transition({ type: 'EVENT_EXPIRED' });
-  } else {
-    StateMachine.transition({ type: 'FORCE_UPDATE' });
-  }
-}, 3 * 60 * 1000);
-setInterval(() => StateMachine.transition({ type: 'TICK' }), 1000);
-</script>
+    async function updateActivity(force=false){
+      const now=Date.now();
+      if(machine.eventType==='special' && now<machine.eventEndTime && !force) return render();
+
+      if(machine.eventType==='special' && now>=machine.eventEndTime){
+        machine.eventType='ambient';
+        machine.eventEndTime=0;
+        await travelTo(rand(HOME_BASE_LOCATIONS));
+      }
+
+      if(maybeStartSpecialEvent()) return render();
+      if(!force && now<machine.eventEndTime) return render();
+
+      if(!HOME_BASE_LOCATIONS.includes(machine.currentLocation)){
+        await travelTo(rand(HOME_BASE_LOCATIONS));
+      }
+      const baseLocation=Math.random()<0.20?'hill':'house';
+      if(machine.currentLocation!==baseLocation) await travelTo(baseLocation);
+      machine.currentActivity=pickAmbientActivity(machine.currentLocation);
+      machine.eventType='ambient';
+      machine.eventEndTime=now+((6+Math.floor(Math.random()*10))*60*1000); // 6-15m
+      render();
+    }
+
+    function runEasterEggs(){
+      const now=Date.now();
+      if(gameState.timeOfDay==='night' && now>=machine.easterEgg.ufoUntil && Math.random()<0.009){
+        machine.easterEgg.ufoUntil=now+1400;
+        ui.ufo.classList.remove('fly'); void ui.ufo.offsetWidth; ui.ufo.classList.add('fly');
+      }
+      if(machine.currentLocation==='house' && now>=machine.easterEgg.partyUntil && Math.random()<0.009){
+        machine.easterEgg.partyUntil=now+3600;
+      }
+      if(machine.currentLocation!=='house' && now>=machine.easterEgg.friendUntil && Math.random()<0.009){
+        machine.easterEgg.friendUntil=now+3200;
+      }
+      ui.partyHat.classList.toggle('show',now<machine.easterEgg.partyUntil && machine.currentLocation==='house');
+      ui.friend.classList.toggle('show',now<machine.easterEgg.friendUntil && machine.currentLocation!=='house');
+    }
+
+    function render(){
+      applyEnvironment();
+      setLocationVisual(machine.currentLocation);
+      ui.vLocation.textContent=machine.currentLocation;
+      ui.vActivity.textContent=machine.currentActivity;
+      ui.vEvent.textContent=machine.eventType;
+      ui.vWeather.textContent=gameState.weather;
+      ui.vTime.textContent=gameState.timeOfDay;
+      runEasterEggs();
+    }
+
+    // --- Public HA hooks ---
+    async function updateFromHA(partial){
+      Object.assign(gameState,partial);
+      if(typeof gameState.forecastGood!=='boolean') gameState.forecastGood=(gameState.weather==='sunny');
+      await updateActivity(true);
+    }
+    async function triggerNewDayCycle(){
+      machine.pendingDayRoll=true;
+      gameState.dayCounter+=1;
+      await updateActivity(true);
+    }
+    window.updateFromHA=updateFromHA;
+    window.triggerNewDayCycle=triggerNewDayCycle;
+
+    // UI testing controls
+    document.querySelectorAll('button[data-weather]').forEach(b=>b.onclick=()=>updateFromHA({weather:b.dataset.weather,forecastGood:b.dataset.weather==='sunny'}));
+    document.querySelectorAll('button[data-time]').forEach(b=>b.onclick=()=>updateFromHA({timeOfDay:b.dataset.time}));
+    document.getElementById('new-day').onclick=()=>triggerNewDayCycle();
+
+    // Runtime loops
+    setInterval(()=>updateActivity(false),3*60*1000);
+    setInterval(()=>{
+      const prev=gameState.virtualMinutes;
+      gameState.virtualMinutes=(gameState.virtualMinutes+5)%(24*60);
+      gameState.timeOfDay=(gameState.virtualMinutes>=6*60 && gameState.virtualMinutes<21*60)?'day':'night';
+      if(gameState.virtualMinutes<prev) { machine.pendingDayRoll=true; gameState.dayCounter+=1; }
+      runEasterEggs();
+      render();
+    },1000);
+
+    render();
+    updateActivity(true);
+  </script>
 </body>
 </html>
