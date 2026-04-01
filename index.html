@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Froggo Weather Simulator - Functionele Build</title>
   <style>
-    :root{--sky:#8bd6ff;--sky-night:#101a33;--grass:#5faa53;--ground:#416f3b;--panel:#ffffffd9;--text:#15202b;--frog:#57c85b;--frog2:#98dd78}
+    :root{--sky:#8bd6ff;--sky-night:#101a33;--grass:#5faa53;--ground:#416f3b;--panel:#fffffff2;--text:#0f1722;--muted:#1f3142;--frog:#57c85b;--frog2:#98dd78}
     *{box-sizing:border-box} body{margin:0;background:#0f172a;color:var(--text);font-family:system-ui,Segoe UI,Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;padding:14px}
     #app{width:min(1160px,100%);border-radius:18px;overflow:hidden;box-shadow:0 18px 40px #0008;background:#eaf4ff}
     #scene{position:relative;height:min(68vh,700px);min-height:460px;background:linear-gradient(180deg,var(--sky),#c7ecff 56%,var(--grass) 57%,var(--ground) 100%);transition:background .45s}
@@ -36,17 +36,30 @@
     .eye.left{left:21px}.eye.right{right:21px}.body{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:86px;height:72px;border-radius:42px 42px 30px 30px;background:var(--frog);box-shadow:0 8px #0003}
     .belly{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:56px;height:40px;border-radius:26px;background:var(--frog2)}
     .mouth{position:absolute;left:50%;top:46px;transform:translateX(-50%);width:22px;height:12px;border-bottom:3px solid #245a2b;border-radius:0 0 12px 12px}
-    #hud{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:10px;background:#ffffffe6;border-top:1px solid #0002}
-    .card{background:var(--panel);border:1px solid #0002;border-radius:10px;padding:8px;min-height:76px}.label{font-size:.72rem;opacity:.66;text-transform:uppercase}.value{font-weight:700;margin-top:3px;font-size:.93rem}
-    .controls{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}button{border:1px solid #0003;background:#f8fbff;border-radius:8px;padding:4px 7px;font-size:.75rem;cursor:pointer}
+    #hud{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:12px;background:#fffffff0;border-top:1px solid #0002}
+    .card{background:var(--panel);border:1px solid #0003;border-radius:10px;padding:10px;min-height:82px}
+    .label{font-size:.78rem;letter-spacing:.03em;color:var(--muted);font-weight:700;text-transform:uppercase}
+    .value{font-weight:800;margin-top:4px;font-size:1.03rem;color:var(--text);line-height:1.35}
+    .controls{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    button{border:1px solid #0003;background:#f8fbff;border-radius:8px;padding:5px 8px;font-size:.83rem;font-weight:700;cursor:pointer}
+    button:focus-visible{outline:3px solid #125ba7;outline-offset:2px}
+    #scene.is-idle #character,#scene.is-idle .rain::before,#scene.is-idle .rain::after,#scene.is-idle #ufo.fly,#scene.is-idle::before{animation-play-state:paused}
     @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}} @keyframes fall{to{transform:translateY(58%)}} @keyframes flash{0%,45%,100%{background:transparent}46%{background:#fff7}47%{background:transparent}66%{background:#ffffff44}67%{background:transparent}}
     @keyframes ufo-fly{0%{left:-120px;top:58px}100%{left:calc(100% + 120px);top:26px}}
-    #docs{padding:14px 16px 18px;background:#fff;border-top:1px solid #0002;line-height:1.45}
-    #docs h2{margin:.1rem 0 .4rem;font-size:1.05rem}
-    #docs h3{margin:.9rem 0 .25rem;font-size:.92rem}
-    #docs ol,#docs ul{margin:.2rem 0 .3rem 1.2rem;padding:0}
-    #docs code{background:#eef3f8;border:1px solid #d5e0eb;padding:.08rem .35rem;border-radius:5px}
-    @media(max-width:960px){#hud{grid-template-columns:1fr 1fr}.value{font-size:.9rem}}
+    @media(max-width:960px){#hud{grid-template-columns:1fr 1fr}.value{font-size:.96rem}}
+    @media (min-aspect-ratio:16/9) and (min-width:1000px){
+      #app{width:min(1320px,97vw)}
+      #scene{height:min(70vh,760px)}
+      #hud{grid-template-columns:repeat(7,minmax(0,1fr))}
+    }
+    @media (max-aspect-ratio:16/9) and (min-width:720px) and (max-width:1200px){
+      #scene{height:min(62vh,640px);min-height:420px}
+      #hud{grid-template-columns:repeat(3,minmax(0,1fr))}
+      #character{left:60%}
+    }
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+    }
   </style>
 </head>
 <body>
@@ -74,317 +87,165 @@
       <button data-time="day">Day</button><button data-time="night">Night</button><button id="force">Force update</button>
     </div></article>
   </section>
-  <section id="docs" aria-label="Deploy en Home Assistant documentatie">
-    <h2>Deploy &amp; Home Assistant korte handleiding</h2>
-
-    <h3>1) Private repo aanmaken + commit/push + GitHub Pages op <code>main</code>/root</h3>
-    <ol>
-      <li>Maak een nieuwe <strong>private</strong> repository op GitHub.</li>
-      <li>In je lokale map:
-        <code>git init</code>,
-        <code>git add .</code>,
-        <code>git commit -m "Initial commit"</code>.
-      </li>
-      <li>Koppel remote en push:
-        <code>git branch -M main</code>,
-        <code>git remote add origin &lt;repo-url&gt;</code>,
-        <code>git push -u origin main</code>.
-      </li>
-      <li>Ga naar <em>Settings → Pages</em> en kies:
-        <code>Source: Deploy from a branch</code>,
-        <code>Branch: main</code>,
-        <code>Folder: / (root)</code>.</li>
-    </ol>
-
-    <h3>2) Let op privacy bij Pages op Free-account</h3>
-    <p>
-      Ook met een private repository kan de GitHub Pages-site vaak publiek bereikbaar zijn via directe URL.
-      Controleer altijd expliciet wie de URL kan openen.
-    </p>
-
-    <h3>3) Mogelijke mitigaties</h3>
-    <ul>
-      <li><strong>Obscure URL</strong>: gebruik een moeilijk te raden pad/naam (beperkte bescherming).</li>
-      <li><strong>Access control</strong>: gebruik platform-opties voor authenticatie/toegang als jouw plan dat ondersteunt.</li>
-      <li><strong>Voorkeur voor gevoelige data</strong>: host lokaal op je LAN (bijv. op Home Assistant host of NAS) i.p.v. publiek internet.</li>
-    </ul>
-
-    <h3>4) Home Assistant embedding voorbeelden</h3>
-    <p><strong>Los iframe (bijv. in een pagina of panel):</strong></p>
-    <pre><code>&lt;iframe
-  src="https://jouw-gepubliceerde-url/"
-  style="width:100%;height:680px;border:0;"
-  loading="lazy"&gt;
-&lt;/iframe&gt;</code></pre>
-    <p><strong>Lovelace dashboard kaart (manual card):</strong></p>
-    <pre><code>type: iframe
-url: https://jouw-gepubliceerde-url/
-aspect_ratio: 70%</code></pre>
-
-    <h3>5) Korte productie-checklist</h3>
-    <ul>
-      <li><strong>Cache busting</strong>: verhoog versienummer in asset-URL’s (bijv. <code>?v=2026-04-01</code>) bij elke release.</li>
-      <li><strong>Backup</strong>: maak periodieke backup van repo én werkende build.</li>
-      <li><strong>Update-procedure</strong>: test lokaal, commit/tag release, deploy, en verifieer in Home Assistant.</li>
-    </ul>
-  </section>
 </main>
 <script>
-/**
- * Module: AppState
- * Input: initiële defaults en externe partial updates.
- * Output: één centrale stateboom die door alle modules gelezen wordt.
- * Fase 2 uitbreidingspunten: persistente storage, undo/redo stack, multi-character support.
- */
-const AppState = {
-  currentLocation: 'house',
-  currentActivity: 'init',
-  eventEndTime: 0,
-  eventType: 'ambient',
-  weather: 'sunny',
-  timeOfDay: 'day',
-  virtualClock: {
-    minutes: 12 * 60,
-    dayCounter: 0,
-    realToVirtualMinutes: 5
-  },
-  lastVirtualDay: null
+/* Home Assistant mapping punt:
+   updateFromHA({weather:'sunny', timeOfDay:'day'}) aanroepen met echte API data. */
+const context={weather:'sunny',timeOfDay:'day',virtualMinutes:12*60,virtualDayCounter:0};
+const state={
+  currentLocation:'house',
+  currentActivity:'init',
+  eventEndTime:0,
+  eventType:'ambient',
+  pendingDayStartEvent:true,
+  lastAmbientByLocation:{},
+  easterEggs:{ufoEndsAt:0,partyHatEndsAt:0,friendEndsAt:0}
 };
 
-/**
- * Module: DomainData
- * Input: vaste configuratie-data (ambient/special activities).
- * Output: lookup-tabellen voor businessregels.
- * Fase 2 uitbreidingspunten: remote content, i18n labels, weighted randomness.
- */
-const DomainData = {
-  AMBIENT: {
-    house: { sunny: { day: ['Walking in the garden', 'Hanging up laundry', 'Blowing bubbles'], night: ['Relaxing on the porch'] }, clear: { night: ['Sleeping in bed', 'Stargazing on the porch'] }, rainy: { day: ['Looking out the window'], night: ['Reading a book with a lamp'] }, stormy: { day: ['Hiding under the covers'], night: ['Hiding under the covers'] } },
-    hill: { sunny: { day: ['Picnic on a towel', 'Flying a kite', 'Painting on an easel'] }, clear: { night: ['Looking through a telescope', 'Campfire with marshmallows'] }, cloudy: { day: ['Birdwatching with binoculars'], night: ['Birdwatching with binoculars'] }, rainy: { day: ['Shelter under a large mushroom'], night: ['Shelter under a large mushroom'] }, stormy: { day: ['Clinging to a tree'], night: ['Clinging to a tree'] } }
+const ACTIVITY_CATALOG={
+  weather:{
+    valid:['sunny','clear','cloudy','rainy','stormy'],
+    aliases:{partlycloudy:'cloudy',pouring:'rainy',lightning:'stormy'},
+    normalize(raw,timeOfDay){
+      const lowered=String(raw||'sunny').toLowerCase();
+      const mapped=this.aliases[lowered]||lowered;
+      if(timeOfDay==='night' && (mapped==='sunny'||mapped==='clear-night')) return 'clear';
+      if(mapped==='clear' && timeOfDay!=='night') return 'sunny';
+      return this.valid.includes(mapped)?mapped:'sunny';
+    }
   },
-  SPECIAL: [
-    { name: 'Zuiderzeemuseum', weather: ['sunny'], activities: ['Walking past historic houses', 'Looking at boats'] },
-    { name: 'Boat Trip', weather: ['sunny'], activities: ["Steering the boat with a captain's hat", 'Looking through a telescope'] },
-    { name: 'Rijksmuseum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Admiring The Night Watch'] },
-    { name: 'Naturalis', weather: ['sunny', 'rainy', 'stormy'], activities: ['Looking at a T-Rex skeleton'] },
-    { name: 'Spoorwegmuseum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Standing next to a steam engine'] },
-    { name: 'Van Gogh Museum', weather: ['sunny', 'rainy', 'stormy'], activities: ['Painting a Sunflowers parody'] }
-  ]
+  locations:{
+    house:{ambient:{sunny:{day:['Walking in the garden','Hanging up laundry','Blowing bubbles'],night:['Relaxing on the porch']},clear:{night:['Sleeping in bed','Stargazing on the porch']},cloudy:{day:['Watering potted plants on the porch'],night:['Watching drifting clouds from the porch']},rainy:{day:['Looking out the window'],night:['Reading a book with a lamp']},stormy:{day:['Hiding under the covers'],night:['Hiding under the covers']}}},
+    hill:{ambient:{sunny:{day:['Picnic on a towel','Flying a kite','Painting on an easel'],night:['Watching the sunset glow']},clear:{night:['Looking through a telescope','Campfire with marshmallows']},cloudy:{day:['Birdwatching with binoculars'],night:['Birdwatching with binoculars']},rainy:{day:['Shelter under a large mushroom'],night:['Shelter under a large mushroom']},stormy:{day:['Clinging to a tree'],night:['Clinging to a tree']}}},
+    Zuiderzeemuseum:{special:{weather:['sunny'],activities:['Walking past historic houses','Looking at boats']}},
+    'Boat Trip':{special:{weather:['sunny'],activities:["Steering the boat with a captain's hat",'Looking through a telescope']}},
+    Rijksmuseum:{special:{weather:['sunny','rainy','stormy'],activities:["Admiring The Night Watch"]}},
+    Naturalis:{special:{weather:['sunny','rainy','stormy'],activities:['Looking at a T-Rex skeleton']}},
+    Spoorwegmuseum:{special:{weather:['sunny','rainy','stormy'],activities:['Standing next to a steam engine']}},
+    'Van Gogh Museum':{special:{weather:['sunny','rainy','stormy'],activities:["Painting a Sunflowers parody"]}}
+  }
 };
+const HOME_LOCATIONS=['house','hill'];
 
-/**
- * Module: BusinessLogic
- * Input: AppState + DomainData + event metadata.
- * Output: gemuteerde AppState zonder DOM-afhankelijkheid.
- * Fase 2 uitbreidingspunten: deterministic seeds, achievements, analytics hooks.
- */
-const BusinessLogic = (() => {
-  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
-  const now = () => Date.now();
+const ui={scene:document.getElementById('scene'),loc:document.getElementById('vLoc'),act:document.getElementById('vAct'),type:document.getElementById('vType'),weather:document.getElementById('vWeather'),time:document.getElementById('vTime'),clock:document.getElementById('vClock'),locationArt:document.getElementById('locationArt'),ufo:document.getElementById('ufo'),friend:document.getElementById('friend'),partyHat:document.getElementById('partyHat')};
+const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
+const realToVirtualMinutes=5;
+const reduceMotionQuery=window.matchMedia('(prefers-reduced-motion: reduce)');
+let reducedMotion=reduceMotionQuery.matches;
+const lastPaint={location:null,weather:null,timeOfDay:null,activity:null,eventType:null,clock:null};
+let lastVisualMutation=Date.now();
+const IDLE_THRESHOLD_MS=12000;
 
-  function weatherKey(state) {
-    return state.timeOfDay === 'night' && state.weather === 'sunny' ? 'clear' : state.weather;
+function weatherKey(){return ACTIVITY_CATALOG.weather.normalize(context.weather,context.timeOfDay);}
+function allSpecialEvents(){return Object.entries(ACTIVITY_CATALOG.locations).filter(([,cfg])=>cfg.special).map(([name,cfg])=>({name,...cfg.special}));}
+function validateActivityCatalog(){
+  const required=['house','hill','Zuiderzeemuseum','Boat Trip','Rijksmuseum','Naturalis','Spoorwegmuseum','Van Gogh Museum'];
+  const issues=[];
+  required.forEach(location=>{if(!ACTIVITY_CATALOG.locations[location]) issues.push(`Missing location config: ${location}`);});
+  if(issues.length) throw new Error(`Invalid ACTIVITY_CATALOG: ${issues.join(' | ')}`);
+}
+function setLocationVisual(location){
+  if(location==='house') ui.locationArt.innerHTML='<div id="locHouse" class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div><div class="window left"></div><div class="window right"></div></div>';
+  else if(location==='hill') ui.locationArt.innerHTML='<div class="placeholder">HILL<br/>🌳⛰️</div>';
+  else ui.locationArt.innerHTML=`<div class="placeholder">${location}</div>`;
+}
+function applyEnvironment(){
+  const changed=lastPaint.weather!==context.weather||lastPaint.timeOfDay!==context.timeOfDay;
+  if(!changed) return false;
+  ui.scene.classList.remove('sunny','rainy','stormy','is-night');
+  ui.scene.classList.add(context.weather);
+  if(context.timeOfDay==='night') ui.scene.classList.add('is-night');
+  return true;
+}
+const EasterEggEngine={roll(_type,p){return p>0&&p<1&&Math.random()<p;}};
+function runEasterEggs(){
+  if(reducedMotion) return;
+  const now=Date.now();
+  if(context.timeOfDay==='night'&&now>=state.easterEggs.ufoEndsAt&&EasterEggEngine.roll('nightUfo',0.009)){
+    state.easterEggs.ufoEndsAt=now+1200;ui.ufo.classList.remove('fly');void ui.ufo.offsetWidth;ui.ufo.classList.add('fly');
   }
-
-  function pickAmbient(state) {
-    const map = DomainData.AMBIENT[state.currentLocation] || DomainData.AMBIENT.house;
-    const block = map[weatherKey(state)] || map.sunny;
-    const list = block[state.timeOfDay] || block.day || block.night || ['Idle'];
-    state.currentActivity = rand(list);
-    state.eventEndTime = now() + ((6 + Math.floor(Math.random() * 10)) * 60 * 1000);
-    state.eventType = 'ambient';
+  if(state.currentLocation==='house'&&now>=state.easterEggs.partyHatEndsAt&&EasterEggEngine.roll('housePartyHat',0.009)) state.easterEggs.partyHatEndsAt=now+3500;
+  if(state.currentLocation!=='house'&&now>=state.easterEggs.friendEndsAt&&EasterEggEngine.roll('outsideFriend',0.009)) state.easterEggs.friendEndsAt=now+3200;
+  ui.partyHat.classList.toggle('show',now<state.easterEggs.partyHatEndsAt&&state.currentLocation==='house');
+  ui.friend.classList.toggle('show',now<state.easterEggs.friendEndsAt&&state.currentLocation!=='house');
+}
+const ActivityEngine={
+  pickAmbient(nextState){
+    const location=nextState.currentLocation;
+    const map=ACTIVITY_CATALOG.locations[location]?.ambient||ACTIVITY_CATALOG.locations.house.ambient;
+    const block=map[weatherKey()]||map.sunny;
+    const list=block[context.timeOfDay]||block.day||block.night||['Idle'];
+    const prev=nextState.lastAmbientByLocation[location];
+    const candidates=(list.length>1&&prev)?(list.filter(a=>a!==prev)||list):list;
+    const picked=rand(candidates.length?candidates:list);
+    nextState.currentActivity=picked;
+    nextState.lastAmbientByLocation[location]=picked;
+    nextState.eventEndTime=Date.now()+((6+Math.floor(Math.random()*15))*60*1000);
+    nextState.eventType='ambient';
   }
-
-  function maybeStartSpecial(state) {
-    const dayKey = state.virtualClock.dayCounter;
-    if (state.lastVirtualDay === dayKey) return false;
-    state.lastVirtualDay = dayKey;
-    if (Math.random() > 0.08) return false;
-
-    const available = DomainData.SPECIAL.filter((s) => s.weather.includes(state.weather));
-    if (!available.length) return false;
-
-    const evt = rand(available);
-    state.currentLocation = evt.name;
-    state.currentActivity = rand(evt.activities);
-    state.eventEndTime = now() + (4 + Math.floor(Math.random() * 3)) * 60 * 60 * 1000;
-    state.eventType = 'special';
+};
+const EventEngine={
+  maybeStartDayEvent(){
+    if(!state.pendingDayStartEvent) return false;
+    state.pendingDayStartEvent=false;
+    if(Math.random()>0.08) return false;
+    const specials=allSpecialEvents();
+    const available=specials.filter(s=>s.weather.includes(context.weather));
+    if(!available.length) return false;
+    const evt=rand(available);
+    state.currentLocation=evt.name;
+    state.currentActivity=rand(evt.activities);
+    state.eventType='special';
+    state.eventEndTime=Date.now()+((4+Math.floor(Math.random()*3))*60*60*1000);
     return true;
   }
-
-  function reconcileEventState(state, { force = false } = {}) {
-    if (!force && now() < state.eventEndTime) return;
-    if (state.eventType === 'special' && now() >= state.eventEndTime) state.currentLocation = 'house';
-
-    if (!maybeStartSpecial(state)) {
-      if (state.currentLocation !== 'house' && state.currentLocation !== 'hill') state.currentLocation = 'house';
-      state.currentLocation = Math.random() < 0.18 ? 'hill' : 'house';
-      pickAmbient(state);
-    }
-  }
-
-  function tickVirtualClock(state) {
-    const previousMinutes = state.virtualClock.minutes;
-    state.virtualClock.minutes = (state.virtualClock.minutes + state.virtualClock.realToVirtualMinutes) % (24 * 60);
-    if (state.virtualClock.minutes < previousMinutes) state.virtualClock.dayCounter += 1;
-    state.timeOfDay = (state.virtualClock.minutes >= 6 * 60 && state.virtualClock.minutes < 21 * 60) ? 'day' : 'night';
-  }
-
-  function applyExternalPartialState(state, partial) {
-    if (!partial || typeof partial !== 'object') return;
-    if (typeof partial.weather === 'string') state.weather = partial.weather;
-    if (typeof partial.timeOfDay === 'string') state.timeOfDay = partial.timeOfDay;
-    if (typeof partial.currentLocation === 'string') state.currentLocation = partial.currentLocation;
-    if (typeof partial.eventType === 'string') state.eventType = partial.eventType;
-  }
-
-  return { reconcileEventState, tickVirtualClock, applyExternalPartialState };
-})();
-
-/**
- * Module: Renderer
- * Input: AppState snapshot.
- * Output: alle DOM-updates (scene, HUD, effects).
- * Fase 2 uitbreidingspunten: canvas renderer, theme packs, accessibility overlays.
- */
-const Renderer = (() => {
-  const ui = {
-    scene: document.getElementById('scene'),
-    loc: document.getElementById('vLoc'),
-    act: document.getElementById('vAct'),
-    type: document.getElementById('vType'),
-    weather: document.getElementById('vWeather'),
-    time: document.getElementById('vTime'),
-    clock: document.getElementById('vClock'),
-    locationArt: document.getElementById('locationArt'),
-    ufo: document.getElementById('ufo'),
-    friend: document.getElementById('friend'),
-    partyHat: document.getElementById('partyHat')
-  };
-
-  function renderScene(state) {
-    ui.scene.classList.remove('sunny', 'rainy', 'stormy', 'is-night');
-    ui.scene.classList.add(state.weather);
-    if (state.timeOfDay === 'night') ui.scene.classList.add('is-night');
-
-    if (state.currentLocation === 'house') {
-      ui.locationArt.innerHTML = '<div id="locHouse" class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div><div class="window left"></div><div class="window right"></div></div>';
-    } else if (state.currentLocation === 'hill') {
-      ui.locationArt.innerHTML = '<div class="placeholder">HILL<br/>🌳⛰️</div>';
-    } else {
-      ui.locationArt.innerHTML = `<div class="placeholder">${state.currentLocation}</div>`;
-    }
-  }
-
-  function renderHUD(state) {
-    ui.loc.textContent = state.currentLocation;
-    ui.act.textContent = state.currentActivity;
-    ui.type.textContent = state.eventType;
-    ui.weather.textContent = state.weather;
-    ui.time.textContent = state.timeOfDay;
-    const hour = Math.floor((state.virtualClock.minutes % (24 * 60)) / 60);
-    const min = Math.floor(state.virtualClock.minutes % 60);
-    ui.clock.textContent = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-  }
-
-  function renderEffects(state) {
-    ui.friend.classList.remove('show');
-    ui.partyHat.classList.remove('show');
-
-    if (state.timeOfDay === 'night' && Math.random() < 0.009) {
-      ui.ufo.classList.remove('fly');
-      void ui.ufo.offsetWidth;
-      ui.ufo.classList.add('fly');
-    }
-    if (state.currentLocation === 'house' && Math.random() < 0.009) ui.partyHat.classList.add('show');
-    if (state.currentLocation !== 'house' && Math.random() < 0.009) ui.friend.classList.add('show');
-  }
-
-  function renderAll(state, { includeEffects = false } = {}) {
-    renderScene(state);
-    renderHUD(state);
-    if (includeEffects) renderEffects(state);
-  }
-
-  return { renderScene, renderHUD, renderEffects, renderAll };
-})();
-
-/**
- * Module: StateMachine
- * Input: expliciet event-object ({ type, payload }).
- * Output: bijgewerkte AppState + centrale render trigger.
- * Fase 2 uitbreidingspunten: guard conditions, async side-effects, event queue replay.
- */
-const StateMachine = {
-  transition(event) {
-    switch (event?.type) {
-      case 'WEATHER_CHANGED':
-        BusinessLogic.applyExternalPartialState(AppState, { weather: event.payload?.weather });
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      case 'TIME_CHANGED':
-        BusinessLogic.applyExternalPartialState(AppState, { timeOfDay: event.payload?.timeOfDay });
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      case 'TICK':
-        BusinessLogic.tickVirtualClock(AppState);
-        BusinessLogic.reconcileEventState(AppState, { force: false });
-        Renderer.renderAll(AppState, { includeEffects: true });
-        return;
-      case 'EVENT_EXPIRED':
-        AppState.eventEndTime = 0;
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      case 'FORCE_UPDATE':
-        BusinessLogic.reconcileEventState(AppState, { force: true });
-        break;
-      default:
-        BusinessLogic.reconcileEventState(AppState, { force: false });
-        break;
-    }
-    Renderer.renderAll(AppState, { includeEffects: false });
-  }
 };
-
-/**
- * Module: HomeAssistantAdapter
- * Input: Home Assistant payload (partial state).
- * Output: vertaalt extern formaat naar StateMachine events.
- * Fase 2 uitbreidingspunten: schema-validatie, telemetry, debounce/throttle.
- */
-function applyHomeAssistantState(payload) {
-  if (!payload || typeof payload !== 'object') return;
-  if (typeof payload.weather === 'string') {
-    StateMachine.transition({ type: 'WEATHER_CHANGED', payload: { weather: payload.weather } });
-  }
-  if (typeof payload.timeOfDay === 'string') {
-    StateMachine.transition({ type: 'TIME_CHANGED', payload: { timeOfDay: payload.timeOfDay } });
-  }
-  if (!('weather' in payload) && !('timeOfDay' in payload)) {
-    StateMachine.transition({ type: 'FORCE_UPDATE' });
-  }
+function updateActivity(force=false){
+  const now=Date.now();
+  if(state.eventType==='special'&&now<state.eventEndTime) return render();
+  if(state.eventType==='special'&&now>=state.eventEndTime){state.currentLocation='house';state.eventType='ambient';state.eventEndTime=0;}
+  if(EventEngine.maybeStartDayEvent()) return render();
+  if(!force&&now<state.eventEndTime) return render();
+  if(!HOME_LOCATIONS.includes(state.currentLocation)) state.currentLocation='house';
+  state.currentLocation=Math.random()<0.18?'hill':'house';
+  ActivityEngine.pickAmbient(state);
+  render();
 }
-window.applyHomeAssistantState = applyHomeAssistantState;
+function render(){
+  let changed=applyEnvironment();
+  if(lastPaint.location!==state.currentLocation){setLocationVisual(state.currentLocation);ui.loc.textContent=state.currentLocation;changed=true;}
+  if(lastPaint.activity!==state.currentActivity){ui.act.textContent=state.currentActivity;changed=true;}
+  if(lastPaint.eventType!==state.eventType){ui.type.textContent=state.eventType;changed=true;}
+  if(lastPaint.weather!==context.weather){ui.weather.textContent=context.weather;changed=true;}
+  if(lastPaint.timeOfDay!==context.timeOfDay){ui.time.textContent=context.timeOfDay;changed=true;}
+  const h=Math.floor((context.virtualMinutes%(24*60))/60); const m=Math.floor(context.virtualMinutes%60);
+  const nextClock=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  if(lastPaint.clock!==nextClock){ui.clock.textContent=nextClock;changed=true;}
+  Object.assign(lastPaint,{location:state.currentLocation,weather:context.weather,timeOfDay:context.timeOfDay,activity:state.currentActivity,eventType:state.eventType,clock:nextClock});
+  if(changed) lastVisualMutation=Date.now();
+  ui.scene.classList.toggle('is-idle',Date.now()-lastVisualMutation>IDLE_THRESHOLD_MS);
+}
+function updateFromHA(partial){Object.assign(context,partial);updateActivity(true);} 
+window.updateFromHA=updateFromHA;
+reduceMotionQuery.addEventListener('change',e=>{reducedMotion=e.matches;render();});
 
-/** Module: UI bindings */
-document.querySelectorAll('button[data-weather]').forEach((b) => {
-  b.onclick = () => applyHomeAssistantState({ weather: b.dataset.weather });
-});
-document.querySelectorAll('button[data-time]').forEach((b) => {
-  b.onclick = () => applyHomeAssistantState({ timeOfDay: b.dataset.time });
-});
-document.getElementById('force').onclick = () => StateMachine.transition({ type: 'FORCE_UPDATE' });
+document.querySelectorAll('button[data-weather]').forEach(b=>b.onclick=()=>updateFromHA({weather:b.dataset.weather}));
+document.querySelectorAll('button[data-time]').forEach(b=>b.onclick=()=>updateFromHA({timeOfDay:b.dataset.time}));
+document.getElementById('force').onclick=()=>updateActivity(true);
 
-/** Module: Schedulers */
-StateMachine.transition({ type: 'FORCE_UPDATE' });
-setInterval(() => {
-  if (Date.now() >= AppState.eventEndTime) {
-    StateMachine.transition({ type: 'EVENT_EXPIRED' });
-  } else {
-    StateMachine.transition({ type: 'FORCE_UPDATE' });
-  }
-}, 3 * 60 * 1000);
-setInterval(() => StateMachine.transition({ type: 'TICK' }), 1000);
+validateActivityCatalog();
+updateActivity(true);
+setInterval(()=>updateActivity(false),3*60*1000);
+setInterval(()=>{
+  const prevMinutes=context.virtualMinutes;
+  const prevTime=context.timeOfDay;
+  context.virtualMinutes=(context.virtualMinutes+realToVirtualMinutes)%(24*60);
+  if(context.virtualMinutes<prevMinutes){context.virtualDayCounter+=1;state.pendingDayStartEvent=true;}
+  context.timeOfDay=(context.virtualMinutes>=6*60&&context.virtualMinutes<21*60)?'day':'night';
+  if(prevTime!==context.timeOfDay||Date.now()>=state.eventEndTime) updateActivity(true);
+  if(Date.now()-lastVisualMutation<IDLE_THRESHOLD_MS/2) runEasterEggs();
+  render();
+},1000);
 </script>
 </body>
 </html>
