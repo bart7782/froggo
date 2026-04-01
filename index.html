@@ -82,6 +82,14 @@
     .frog-eye.left{left:24px}.frog-eye.right{right:24px}
     .frog-body{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:98px;height:78px;border-radius:44px 44px 30px 30px;background:var(--frog);box-shadow:0 8px #0003}
     .frog-belly{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:62px;height:42px;border-radius:24px;background:var(--frog-light)}
+    .frog-head{position:absolute;left:50%;top:24px;transform:translateX(-50%);width:84px;height:56px;border-radius:48px;background:#5fe164;box-shadow:inset 0 -4px #46bb50}
+    .frog-mouth{position:absolute;left:50%;top:58px;transform:translateX(-50%);width:38px;height:14px;border-bottom:4px solid #2f6f35;border-radius:0 0 20px 20px}
+    .frog-cheek{position:absolute;top:54px;width:10px;height:10px;border-radius:50%;background:#7ce77a}.frog-cheek.left{left:40px}.frog-cheek.right{right:40px}
+    .frog-leg{position:absolute;bottom:0;width:28px;height:20px;border-radius:18px;background:#49bd4c}.frog-leg.left{left:20px}.frog-leg.right{right:20px}
+    .frog-hand{position:absolute;top:76px;width:16px;height:12px;border-radius:10px;background:#4ec853}.frog-hand.left{left:18px}.frog-hand.right{right:18px}
+    #raincoat{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);width:78px;height:60px;background:linear-gradient(#ffd756,#f2a90f);border:3px solid #d18a00;border-radius:16px 16px 24px 24px;display:none}
+    #raincoat::before{content:'';position:absolute;left:50%;top:-26px;transform:translateX(-50%);width:42px;height:26px;border-radius:20px 20px 0 0;background:#ffd756;border:3px solid #d18a00;border-bottom:none}
+    #raincoat.show{display:block}
 
     #friend{position:absolute;right:13%;bottom:18%;font-size:52px;opacity:0;transform:translateY(8px);transition:all .26s}
     #friend.show{opacity:1;transform:translateY(0)}
@@ -124,8 +132,13 @@
       <div id="ufo" aria-hidden="true">🛸</div>
       <div id="frog" aria-label="frog character">
         <div id="party-hat" aria-hidden="true">🎉🍰</div>
+        <div id="raincoat" aria-hidden="true"></div>
         <div class="frog-eye left"></div><div class="frog-eye right"></div>
+        <div class="frog-head"></div><div class="frog-mouth"></div>
+        <div class="frog-cheek left"></div><div class="frog-cheek right"></div>
         <div class="frog-body"></div><div class="frog-belly"></div>
+        <div class="frog-hand left"></div><div class="frog-hand right"></div>
+        <div class="frog-leg left"></div><div class="frog-leg right"></div>
       </div>
       <div id="travel-overlay">Travelling to new location...</div>
     </section>
@@ -177,7 +190,7 @@
     const ui={
       scene:document.getElementById('scene'),locationArt:document.getElementById('location-art'),overlay:document.getElementById('travel-overlay'),
       vLocation:document.getElementById('v-location'),vActivity:document.getElementById('v-activity'),vEvent:document.getElementById('v-event'),vWeather:document.getElementById('v-weather'),vTime:document.getElementById('v-time'),vClock:document.getElementById('v-clock'),
-      friend:document.getElementById('friend'),ufo:document.getElementById('ufo'),partyHat:document.getElementById('party-hat'),frog:document.getElementById('frog'),props:[...document.querySelectorAll('.prop')]
+      friend:document.getElementById('friend'),ufo:document.getElementById('ufo'),partyHat:document.getElementById('party-hat'),raincoat:document.getElementById('raincoat'),frog:document.getElementById('frog'),props:[...document.querySelectorAll('.prop')]
     };
 
     const rand=(arr)=>arr[Math.floor(Math.random()*arr.length)];
@@ -190,7 +203,10 @@
       const museum=(label)=>`<div class="museum"><div class="columns"><i></i><i></i><i></i><i></i><i></i></div><div class="label">${label}</div></div>`;
       if(location==='house') ui.locationArt.innerHTML='<div class="house"><div class="roof"></div><div class="wall"></div><div class="door"></div><div class="window w1"></div><div class="window w2"></div></div>';
       else if(location==='hill') ui.locationArt.innerHTML='<div class="hill"><div class="m1"></div><div class="m2"></div><div class="tree"></div></div>';
-      else if(location==='Zuiderzeemuseum') ui.locationArt.innerHTML='<div class="harbor"><div class="house-row"></div><div class="boat-mini"></div></div>';
+      else if(location==='Zuiderzeemuseum'){
+        const closed = gameState.timeOfDay==='night' ? '<div class="label">Zuiderzeemuseum · gesloten</div>' : '';
+        ui.locationArt.innerHTML=`<div class="harbor"><div class="house-row"></div><div class="boat-mini"></div>${closed}</div>`;
+      }
       else if(location==='Boat Trip') ui.locationArt.innerHTML='<div class="boat"><div class="deck"></div><div class="mast"></div><div class="sail"></div></div>';
       else if(location==='Rijksmuseum') ui.locationArt.innerHTML=museum('Rijksmuseum');
       else if(location==='Naturalis') ui.locationArt.innerHTML=museum('Naturalis');
@@ -207,6 +223,7 @@
     function applyActivityVisuals(activity){
       ui.props.forEach(p=>p.classList.remove('show'));
       ui.frog.className=''; ui.frog.id='frog';
+      ui.raincoat.classList.remove('show');
       const show=(id)=>document.getElementById(id)?.classList.add('show');
       if(/sleep|covers|bed/i.test(activity)){ ui.frog.classList.add('pose-sleep'); show('prop-bed'); }
       else if(/book|reading/i.test(activity)){ ui.frog.classList.add('pose-read'); show('prop-book'); }
@@ -215,10 +232,11 @@
       else if(/kite/i.test(activity)){ ui.frog.classList.add('pose-kite'); show('prop-kite'); }
       else if(/painting|sunflowers/i.test(activity)){ ui.frog.classList.add('pose-paint'); show('prop-easel'); }
       else if(/birdwatching/i.test(activity)){ show('prop-binocular'); }
-      else if(/shelter|rain|storm/i.test(activity)){ ui.frog.classList.add('pose-hide'); show('prop-umbrella'); }
+      else if(/shelter|rain|storm|regen/i.test(activity)){ ui.frog.classList.add('pose-hide'); show('prop-umbrella'); }
       else if(/telescope|stargazing/i.test(activity)){ show('prop-telescope'); }
       else if(/captain|boat|steering/i.test(activity)){ ui.frog.classList.add('pose-steer'); show('prop-captain'); }
       else if(/campfire|marshmallows/i.test(activity)){ show('prop-marshmallow'); }
+      if((gameState.weather==='rainy' || gameState.weather==='stormy') && !/inside|bed|window|museum|house/i.test(activity)) ui.raincoat.classList.add('show');
     }
 
     function pickAmbientActivity(location){
@@ -232,18 +250,28 @@
       return chosen;
     }
 
+
+    function isIndoorLocation(location){ return ['house','Rijksmuseum','Naturalis','Spoorwegmuseum','Van Gogh Museum'].includes(location); }
+    function isMuseumClosed(location){ return location==='Zuiderzeemuseum' && gameState.timeOfDay==='night'; }
+    function weatherForcesIndoor(){ return gameState.weather==='stormy'; }
+
     function maybeStartSpecialEvent(){
       if(!machine.pendingDayRoll) return false;
       machine.pendingDayRoll=false;
       if(Math.random()>0.10) return false;
       const good=gameState.forecastGood ?? (gameState.weather==='sunny');
-      const allowed=SPECIAL_EVENTS.filter(e=>e.weatherRule==='any' || (e.weatherRule==='good'&&good));
+      const allowed=SPECIAL_EVENTS.filter(e=>{
+        if(isMuseumClosed(e.name)) return false;
+        if((gameState.weather==='rainy' || gameState.weather==='stormy') && !isIndoorLocation(e.name) && e.name!=='Boat Trip') return false;
+        if(weatherForcesIndoor() && e.name==='Boat Trip') return false;
+        return e.weatherRule==='any' || (e.weatherRule==='good'&&good);
+      });
       if(!allowed.length) return false;
       const event=rand(allowed);
       machine.currentLocation=event.name;
       machine.currentActivity=rand(event.activities);
       machine.eventType='special';
-      machine.eventEndTime=Date.now()+((4+Math.floor(Math.random()*3))*60*60*1000);
+      machine.eventEndTime=Date.now()+((2+Math.floor(Math.random()*3))*60*60*1000);
       return true;
     }
 
@@ -260,12 +288,18 @@
 
     async function updateActivity(force=false){
       const now=Date.now();
-      if(machine.eventType==='special' && now<machine.eventEndTime && !force) return render();
+      if(machine.eventType==='special' && now<machine.eventEndTime && !force){
+        if((gameState.weather==='stormy' && !isIndoorLocation(machine.currentLocation)) || isMuseumClosed(machine.currentLocation)){
+          machine.eventType='ambient';
+          machine.eventEndTime=0;
+          await travelTo('house');
+        } else return render();
+      }
       if(machine.eventType==='special' && now>=machine.eventEndTime){machine.eventType='ambient';machine.eventEndTime=0;await travelTo(rand(HOME_BASE_LOCATIONS));}
       if(maybeStartSpecialEvent()) return render();
       if(!force && now<machine.eventEndTime) return render();
-      if(!HOME_BASE_LOCATIONS.includes(machine.currentLocation)) await travelTo(rand(HOME_BASE_LOCATIONS));
-      const baseLocation=Math.random()<0.25?'hill':'house';
+      const shouldBeIndoor = weatherForcesIndoor() || (gameState.weather==='rainy' && Math.random()<0.65);
+      const baseLocation=shouldBeIndoor ? 'house' : (Math.random()<0.35?'hill':'house');
       if(machine.currentLocation!==baseLocation) await travelTo(baseLocation);
       machine.currentActivity=pickAmbientActivity(machine.currentLocation);
       machine.eventType='ambient';
